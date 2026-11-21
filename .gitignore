@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Clave de release: nunca al repo (va en GitHub Secrets).
+# La debug.keystore SI se versiona a propósito (ver README).
+*.jks
+release.keystore

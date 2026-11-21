@@ -1,0 +1,66 @@
+package com.droxm.browser
+
+import android.content.ComponentCallbacks2
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import com.droxm.browser.engine.WebViewEngine
+import com.droxm.browser.tabs.TabManager
+import com.droxm.browser.ui.BrowserScreen
+import com.droxm.browser.ui.DroxmTheme
+
+class MainActivity : ComponentActivity() {
+
+    private lateinit var manager: TabManager
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        manager = TabManager(WebViewEngine(this))
+        manager.newTab(incognito = false, url = viewUrl(intent) ?: "")
+
+        setContent {
+            DroxmTheme(forceDark = manager.activeTab?.incognito == true) {
+                BrowserScreen(manager)
+            }
+        }
+    }
+
+    // Otra app abre un link con Droxm: va a una pestaña nueva.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        viewUrl(intent)?.let { manager.newTab(incognito = false, url = it) }
+    }
+
+    override fun onPause() {
+        manager.onHostPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        manager.onHostResume()
+    }
+
+    // Poca memoria o app en segundo plano: se duermen las pestañas que no se están viendo.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (::manager.isInitialized && level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            manager.discardInactive()
+        }
+    }
+
+    override fun onDestroy() {
+        manager.destroy()
+        super.onDestroy()
+    }
+
+    private fun viewUrl(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val data = intent.dataString ?: return null
+        return if (data.startsWith("http://", true) || data.startsWith("https://", true)) data else null
+    }
+}
