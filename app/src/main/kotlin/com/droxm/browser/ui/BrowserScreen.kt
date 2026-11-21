@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.tabs.BrowserTab
@@ -64,7 +65,12 @@ import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.util.UrlUtils
 
 @Composable
-fun BrowserScreen(manager: TabManager, settings: AppSettings, modifier: Modifier = Modifier) {
+fun BrowserScreen(
+    manager: TabManager,
+    settings: AppSettings,
+    frequentSites: FrequentSites,
+    modifier: Modifier = Modifier,
+) {
     val tab = manager.activeTab
     val focusManager = LocalFocusManager.current
     var showSwitcher by remember { mutableStateOf(false) }
@@ -108,7 +114,13 @@ fun BrowserScreen(manager: TabManager, settings: AppSettings, modifier: Modifier
                 val onTop = settings.barPosition == BarPosition.TOP
                 if (onTop) bar()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    PageContent(tab, manager.incognitoIsolated)
+                    PageContent(
+                        tab = tab,
+                        incognitoIsolated = manager.incognitoIsolated,
+                        settings = settings,
+                        frequentSites = frequentSites,
+                        onOpenSite = { url -> manager.navigate(tab, url) },
+                    )
                 }
                 if (!onTop) bar()
             }
@@ -125,6 +137,7 @@ fun BrowserScreen(manager: TabManager, settings: AppSettings, modifier: Modifier
         if (showSettings) {
             SettingsScreen(
                 settings = settings,
+                frequentSites = frequentSites,
                 onClose = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -133,11 +146,20 @@ fun BrowserScreen(manager: TabManager, settings: AppSettings, modifier: Modifier
 }
 
 @Composable
-private fun PageContent(tab: BrowserTab, incognitoIsolated: Boolean) {
+private fun PageContent(
+    tab: BrowserTab,
+    incognitoIsolated: Boolean,
+    settings: AppSettings,
+    frequentSites: FrequentSites,
+    onOpenSite: (String) -> Unit,
+) {
     if (tab.isHome) {
         HomePage(
             incognito = tab.incognito,
             incognitoIsolated = incognitoIsolated,
+            settings = settings,
+            frequentSites = frequentSites,
+            onOpenSite = onOpenSite,
             modifier = Modifier.fillMaxSize(),
         )
         return

@@ -14,6 +14,9 @@ interface EngineDelegate {
     fun onLoadingChanged(loading: Boolean)
     fun onNavigationChanged(canGoBack: Boolean, canGoForward: Boolean)
     fun onOpenInNewTab(url: String)
+
+    /** El proceso de render del WebView murió (por ejemplo por falta de memoria): hay que volver a crear la vista. */
+    fun onRendererGone()
 }
 
 /** Una pestaña "viva" (con su vista de motor). */

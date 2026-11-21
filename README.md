@@ -21,7 +21,9 @@ El APK es de tipo **release** (R8 + sin código de debug, bastante más fluido q
 
 - `engine/` interfaz `BrowserEngine` + implementación con WebView. Si algún día se migra a GeckoView, solo se escribe otra implementación.
 - `tabs/` pestañas, `TabManager` (descarte de pestañas inactivas, incógnito) y `TabStore` (guarda/restaura pestañas normales).
-- `settings/` `AppSettings`: posición y tamaño de la barra, botones, tema, buscador, pestañas activas.
+- `settings/` `AppSettings`: posición y tamaño de la barra, botones, tema, buscador, pestañas activas, fondo de inicio, oscuridad, bloqueo de anuncios.
+- `data/` `FrequentSites`: cuenta los sitios más visitados (solo pestañas normales).
+- `engine/AdBlocker.kt`: bloqueo de anuncios por dominio (lista corta, ampliable).
 - `ui/` pantallas en Compose.
 - `util/` utilidades.
 
@@ -30,5 +32,6 @@ El APK es de tipo **release** (R8 + sin código de debug, bastante más fluido q
 - [x] Paso 1: esqueleto, WebView, barra de direcciones, build en GitHub
 - [x] Paso 2: pestañas con descarte automático + modo incógnito aislado
 - [x] Pestañas guardadas entre sesiones (menos incógnito)
-- [~] Paso 3: personalización. Hecho: ajustes de layout (barra arriba/abajo, tamaño, botones), tema, buscador. Falta: fondos con foto/animados y accesos rápidos
+- [x] Paso 3: personalización. Ajustes de layout (barra arriba/abajo, tamaño, botones), tema, buscador, pantalla de inicio con fondo (foto, GIF o video), slider de oscuridad, texto "Droxm" opcional y sitios más visitados
+- [~] Paso 4: hecho el bloqueo de anuncios por dominio. Falta: historial, favoritos, descargas
 - [ ] Paso 4: bloqueo de anuncios, historial, favoritos, descargas

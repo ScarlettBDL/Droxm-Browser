@@ -1,10 +1,13 @@
 package com.droxm.browser.tabs
 
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.EngineDelegate
 import com.droxm.browser.settings.AppSettings
@@ -19,6 +22,7 @@ class TabManager(
     private val engine: BrowserEngine,
     private val settings: AppSettings,
     private val store: TabStore,
+    private val frequentSites: FrequentSites,
 ) {
 
     val tabs = mutableStateListOf<BrowserTab>()
@@ -210,7 +214,23 @@ class TabManager(
         override fun onLoadingChanged(loading: Boolean) {
             tab.isLoading = loading
             // Al terminar de cargar ya están la URL y el título finales: se guardan.
-            if (!loading && !tab.incognito) persist()
+            if (!loading && !tab.incognito) {
+                frequentSites.record(tab.url)
+                persist()
+            }
+        }
+
+        override fun onRendererGone() {
+            // Se hace en el próximo ciclo: no se puede destruir el WebView desde dentro de su propio callback.
+            Handler(Looper.getMainLooper()).post {
+                if (tab.session == null) return@post
+                tab.session?.release()
+                tab.session = null
+                tab.isLoading = false
+                tab.progress = 0
+                // Si es la pestaña que se está viendo, se vuelve a crear y recarga la página.
+                if (tab.id == activeId && tabs.contains(tab)) ensureSession(tab)
+            }
         }
 
         override fun onNavigationChanged(canGoBack: Boolean, canGoForward: Boolean) {

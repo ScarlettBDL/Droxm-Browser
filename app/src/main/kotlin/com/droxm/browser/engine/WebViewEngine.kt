@@ -9,14 +9,18 @@ import android.os.Bundle
 import android.os.Message
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONObject
 
 private const val INCOGNITO_PROFILE = "droxm_incognito"
 
@@ -86,6 +90,32 @@ private class WebViewSession(
             delegate.onLoadingChanged(false)
             if (url != null) delegate.onUrlChanged(url)
             publishNavigation(view)
+            if (AdBlocker.enabled) view?.evaluateJavascript(AdBlocker.HIDE_SCRIPT, null)
+        }
+
+        // Anuncios de dominios conocidos: respuesta vacía al instante, sin pasar por la red (y sin pantalla de error).
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            if (request == null || request.isForMainFrame) return null
+            val uri = request.url
+            return if (AdBlocker.shouldBlock(uri.host)) AdBlocker.emptyResponse(uri.path ?: "") else null
+        }
+
+        // Si algo que NO es la página principal falla (un anuncio bloqueado por DNS, por ejemplo), el WebView dibuja
+        // su pantalla de error dentro del iframe. Se esconde ese iframe para que no quede un cartel de error en medio.
+        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+            if (view == null || request == null || request.isForMainFrame) return
+            val quoted = JSONObject.quote(request.url.toString())
+            view.evaluateJavascript(
+                "(function(u){var f=document.querySelectorAll('iframe');" +
+                    "for(var i=0;i<f.length;i++){if(f[i].src===u){f[i].style.display='none';}}})($quoted)",
+                null,
+            )
+        }
+
+        // Si el proceso de render muere (poca memoria), sin esto la app entera se cierra.
+        override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+            delegate.onRendererGone()
+            return true
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -100,8 +130,15 @@ private class WebViewSession(
     }
 
     private val chrome = object : WebChromeClient() {
+        private var lastProgress = -1
+
+        // El WebView avisa el progreso decenas de veces por página; cada aviso redibuja la interfaz.
+        // Alcanza con avisar cada 5 puntos.
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
-            delegate.onProgressChanged(newProgress)
+            if (newProgress == 100 || newProgress < lastProgress || newProgress - lastProgress >= 5) {
+                lastProgress = newProgress
+                delegate.onProgressChanged(newProgress)
+            }
         }
 
         override fun onReceivedTitle(view: WebView?, title: String?) {

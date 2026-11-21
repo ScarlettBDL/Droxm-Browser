@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.droxm.browser.engine.WebViewEngine
+import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.tabs.TabStore
@@ -17,13 +18,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var manager: TabManager
     private lateinit var settings: AppSettings
+    private lateinit var frequentSites: FrequentSites
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         settings = AppSettings(this)
-        manager = TabManager(WebViewEngine(this), settings, TabStore(this))
+        frequentSites = FrequentSites(this)
+        manager = TabManager(WebViewEngine(this), settings, TabStore(this), frequentSites)
 
         // Se recuperan las pestañas de la sesión anterior; si hay un link de otra app, va en una pestaña nueva.
         val restored = manager.restore()
@@ -38,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 mode = settings.themeMode,
                 forceDark = manager.activeTab?.incognito == true,
             ) {
-                BrowserScreen(manager, settings)
+                BrowserScreen(manager, settings, frequentSites)
             }
         }
     }

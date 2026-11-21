@@ -1,0 +1,86 @@
+package com.droxm.browser.engine
+
+import android.util.Base64
+import android.webkit.WebResourceResponse
+import java.io.ByteArrayInputStream
+
+/**
+ * Bloqueo de anuncios por dominio. Las peticiones a estos dominios se contestan al instante con una
+ * respuesta vacía, así nunca llegan a la red y el WebView no muestra pantallas de error.
+ *
+ * La lista es corta a propósito (dominios de publicidad conocidos); no tapa los anuncios propios de
+ * un sitio (por ejemplo los de YouTube). Se puede ampliar o cargar desde una lista de filtros más adelante.
+ */
+object AdBlocker {
+
+    @Volatile
+    var enabled: Boolean = true
+
+    private val HOSTS = setOf(
+        // Google
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
+        "2mdn.net", "google-analytics.com", "googletagservices.com", "admob.com",
+        // Redes de anuncios / subastas
+        "adnxs.com", "adsrvr.org", "amazon-adsystem.com", "criteo.com", "criteo.net", "taboola.com",
+        "outbrain.com", "rubiconproject.com", "pubmatic.com", "openx.net", "casalemedia.com",
+        "advertising.com", "adform.net", "smartadserver.com", "moatads.com", "scorecardresearch.com",
+        "quantserve.com", "quantcount.com", "media.net", "adroll.com", "yieldmo.com", "teads.tv",
+        "sharethrough.com", "33across.com", "bidswitch.net", "contextweb.com", "lijit.com",
+        "sovrn.com", "indexww.com", "adtechus.com", "serving-sys.com", "flashtalking.com",
+        "adition.com", "bluekai.com", "krxd.net", "demdex.net", "everesttech.net", "mathtag.com",
+        "tapad.com", "rlcdn.com", "agkn.com", "bidr.io", "adsymptotic.com", "adscale.de",
+        "revcontent.com", "mgid.com", "zedo.com", "undertone.com", "triplelift.com", "gumgum.com",
+        "spotxchange.com", "spotx.tv", "springserve.com", "tremorhub.com", "adsafeprotected.com",
+        "doubleverify.com", "imrworldwide.com", "chartbeat.net", "ml314.com", "adgrx.com",
+        "adhigh.net", "richaudience.com", "improvedigital.com", "emxdgt.com", "adkernel.com",
+        // Móvil
+        "adcolony.com", "applovin.com", "mopub.com", "inmobi.com", "chartboost.com", "vungle.com",
+        "ironsrc.com", "supersonicads.com", "startappservice.com", "unityads.unity3d.com",
+        // Pop-ups / tráfico
+        "popads.net", "popcash.net", "propellerads.com", "exoclick.com", "juicyads.com",
+        "trafficjunky.net", "adsterra.com", "hilltopads.net", "clickadu.com", "trafficstars.com",
+        "adspyglass.com", "onclickads.net", "ad-maven.com", "admaven.com", "pushwoosh.com",
+        // Redes sociales (anuncios y seguimiento)
+        "ads.twitter.com", "analytics.twitter.com", "ads.linkedin.com", "ads.pinterest.com",
+        "ads.yahoo.com", "ads.tiktok.com", "business-api.tiktok.com", "an.facebook.com",
+    )
+
+    // GIF transparente de 1x1 para reemplazar imágenes de anuncios sin dejar el ícono de imagen rota.
+    private val PIXEL: ByteArray by lazy {
+        Base64.decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", Base64.DEFAULT)
+    }
+
+    fun shouldBlock(host: String?): Boolean {
+        if (!enabled || host == null) return false
+        var h = host.lowercase()
+        // Se prueba el dominio completo y después cada dominio padre (a.b.example.com → b.example.com → example.com).
+        while (h.contains('.')) {
+            if (h in HOSTS) return true
+            h = h.substringAfter('.')
+        }
+        return false
+    }
+
+    fun emptyResponse(path: String): WebResourceResponse {
+        val p = path.lowercase()
+        return when {
+            p.endsWith(".js") ->
+                WebResourceResponse("application/javascript", "utf-8", ByteArrayInputStream(ByteArray(0)))
+            p.endsWith(".css") ->
+                WebResourceResponse("text/css", "utf-8", ByteArrayInputStream(ByteArray(0)))
+            p.endsWith(".gif") || p.endsWith(".png") || p.endsWith(".jpg") ||
+                p.endsWith(".jpeg") || p.endsWith(".webp") ->
+                WebResourceResponse("image/gif", null, ByteArrayInputStream(PIXEL))
+            else ->
+                WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+        }
+    }
+
+    /** CSS que esconde los huecos que dejan los anuncios bloqueados. Se inyecta al terminar de cargar la página. */
+    const val HIDE_SCRIPT = "(function(){if(document.getElementById('__droxm_ab'))return;" +
+        "var s=document.createElement('style');s.id='__droxm_ab';" +
+        "s.textContent='ins.adsbygoogle,iframe[id^=\"google_ads_iframe\"],iframe[src*=\"doubleclick.net\"]," +
+        "iframe[src*=\"googlesyndication.com\"],[id^=\"div-gpt-ad\"],[id^=\"google_ads\"]" +
+        "{display:none!important}';" +
+        "(document.head||document.documentElement).appendChild(s);})();"
+}
