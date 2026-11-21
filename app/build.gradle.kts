@@ -46,7 +46,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfigs.findByName("release")?.let { signingConfig = it }
+            // Con los secrets de GitHub se firma con la clave de release; si no, con la clave fija de debug
+            // (así el APK sigue siendo instalable y se actualiza encima del anterior).
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

@@ -7,13 +7,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.EngineDelegate
+import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.util.UrlUtils
 
 /**
  * Maneja la lista de pestañas, cuál está activa y cuántas viven a la vez.
  * Las pestañas inactivas se "duermen": se guarda su estado y se destruye el WebView.
+ * Las pestañas normales se guardan en disco y se restauran al abrir la app.
  */
-class TabManager(private val engine: BrowserEngine) {
+class TabManager(
+    private val engine: BrowserEngine,
+    private val settings: AppSettings,
+    private val store: TabStore,
+) {
 
     val tabs = mutableStateListOf<BrowserTab>()
 
@@ -26,19 +32,35 @@ class TabManager(private val engine: BrowserEngine) {
     val incognitoIsolated: Boolean
         get() = engine.incognitoIsolated
 
-    /** Máximo de pestañas con WebView vivo a la vez (la activa incluida). */
-    var maxLiveTabs = 3
-
     private var nextId = 1L
+
+    /** Última pestaña normal que estuvo activa (para guardar cuál reabrir aunque se cierre desde incógnito). */
+    private var lastNormalId = -1L
 
     init {
         engine.cleanupLeftovers()
+    }
+
+    /** Recupera las pestañas guardadas. Devuelve false si no había ninguna. */
+    fun restore(): Boolean {
+        val snapshot = store.load() ?: return false
+        if (snapshot.tabs.isEmpty()) return false
+
+        snapshot.tabs.forEach { saved ->
+            val tab = BrowserTab(nextId++, incognito = false, initialUrl = saved.url)
+            tab.title = saved.title
+            tabs.add(tab)
+        }
+        // Solo la activa se carga; las demás quedan dormidas hasta que se abran.
+        select(tabs[snapshot.activeIndex.coerceIn(0, tabs.lastIndex)].id)
+        return true
     }
 
     fun newTab(incognito: Boolean, url: String = "", select: Boolean = true): BrowserTab {
         val tab = BrowserTab(nextId++, incognito, url)
         tabs.add(tab)
         if (select) select(tab.id)
+        persist()
         return tab
     }
 
@@ -48,15 +70,17 @@ class TabManager(private val engine: BrowserEngine) {
         if (previous != null && previous !== tab) previous.session?.onPause()
 
         activeId = id
+        if (!tab.incognito) lastNormalId = id
         tab.lastActive = SystemClock.elapsedRealtime()
         ensureSession(tab)
         tab.session?.onResume()
         enforceLimit()
+        persist()
     }
 
     /** Escribió algo en la barra: carga la URL o hace una búsqueda. */
     fun navigate(tab: BrowserTab, input: String) {
-        val url = UrlUtils.resolve(input) ?: return
+        val url = UrlUtils.resolve(input, settings.searchEngine.url) ?: return
         tab.url = url
         tab.title = ""
         val session = tab.session
@@ -66,6 +90,7 @@ class TabManager(private val engine: BrowserEngine) {
             tab.savedState = null
             ensureSession(tab)
         }
+        persist()
     }
 
     fun close(id: Long) {
@@ -89,6 +114,7 @@ class TabManager(private val engine: BrowserEngine) {
                 ?: (if (tab.incognito) tabs.lastOrNull() else null)
             if (target != null) select(target.id) else newTab(incognito = false)
         }
+        persist()
     }
 
     fun closeAll(incognito: Boolean) {
@@ -108,6 +134,7 @@ class TabManager(private val engine: BrowserEngine) {
             val target = if (incognito) tabs.lastOrNull() else null
             if (target != null) select(target.id) else newTab(incognito = false)
         }
+        persist()
     }
 
     /** Duerme todas las pestañas menos la activa (se usa cuando el sistema pide memoria). */
@@ -117,6 +144,7 @@ class TabManager(private val engine: BrowserEngine) {
 
     fun onHostPause() {
         activeTab?.session?.onPause()
+        persist()
     }
 
     fun onHostResume() {
@@ -130,6 +158,11 @@ class TabManager(private val engine: BrowserEngine) {
         }
         tabs.clear()
         engine.onIncognitoClosed()
+    }
+
+    private fun persist() {
+        if (tabs.isEmpty()) return
+        store.save(tabs, lastNormalId)
     }
 
     private fun ensureSession(tab: BrowserTab) {
@@ -148,7 +181,7 @@ class TabManager(private val engine: BrowserEngine) {
         val others = tabs
             .filter { it.session != null && it.id != activeId }
             .sortedByDescending { it.lastActive }
-        val keep = (maxLiveTabs - 1).coerceAtLeast(0)
+        val keep = (settings.maxLiveTabs - 1).coerceAtLeast(0)
         others.drop(keep).forEach { discard(it) }
     }
 
@@ -176,6 +209,8 @@ class TabManager(private val engine: BrowserEngine) {
 
         override fun onLoadingChanged(loading: Boolean) {
             tab.isLoading = loading
+            // Al terminar de cargar ya están la URL y el título finales: se guardan.
+            if (!loading && !tab.incognito) persist()
         }
 
         override fun onNavigationChanged(canGoBack: Boolean, canGoForward: Boolean) {

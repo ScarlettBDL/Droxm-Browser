@@ -4,9 +4,9 @@ Navegador Android liviano y personalizable. Usa el WebView del sistema (Chromium
 
 ## Compilar con GitHub
 
-Cada push a `main` corre el workflow **Build APK**: entrá a la pestaña *Actions*, abrí la última ejecución y bajá el artifact `droxm-browser-debug` (un zip con el APK). Instalalo en el celular.
+Cada push a `main` corre el workflow **Build APK**: entrá a la pestaña *Actions*, abrí la última ejecución y bajá el artifact `droxm-browser` (un zip con el APK). Instalalo en el celular.
 
-El APK de debug siempre se firma con `app/debug.keystore` (versionada a propósito), así que cada build nuevo se instala encima del anterior sin desinstalar.
+El APK es de tipo **release** (R8 + sin código de debug, bastante más fluido que un debug) y se firma con `app/debug.keystore` (versionada a propósito), así que cada build nuevo se instala encima del anterior sin desinstalar. Si venías de un APK debug anterior, también se instala encima (misma clave).
 
 ## Release firmado (para repartir el APK)
 
@@ -20,7 +20,8 @@ El APK de debug siempre se firma con `app/debug.keystore` (versionada a propósi
 ## Estructura
 
 - `engine/` interfaz `BrowserEngine` + implementación con WebView. Si algún día se migra a GeckoView, solo se escribe otra implementación.
-- `tabs/` pestañas y `TabManager` (descarte de pestañas inactivas, modo incógnito).
+- `tabs/` pestañas, `TabManager` (descarte de pestañas inactivas, incógnito) y `TabStore` (guarda/restaura pestañas normales).
+- `settings/` `AppSettings`: posición y tamaño de la barra, botones, tema, buscador, pestañas activas.
 - `ui/` pantallas en Compose.
 - `util/` utilidades.
 
@@ -28,5 +29,6 @@ El APK de debug siempre se firma con `app/debug.keystore` (versionada a propósi
 
 - [x] Paso 1: esqueleto, WebView, barra de direcciones, build en GitHub
 - [x] Paso 2: pestañas con descarte automático + modo incógnito aislado
-- [ ] Paso 3: personalización (fondos, layout, temas)
+- [x] Pestañas guardadas entre sesiones (menos incógnito)
+- [~] Paso 3: personalización. Hecho: ajustes de layout (barra arriba/abajo, tamaño, botones), tema, buscador. Falta: fondos con foto/animados y accesos rápidos
 - [ ] Paso 4: bloqueo de anuncios, historial, favoritos, descargas

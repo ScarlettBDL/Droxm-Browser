@@ -5,13 +5,10 @@ import java.net.URLEncoder
 
 object UrlUtils {
 
-    // En el paso de personalización esto pasa a ser un ajuste (motor de búsqueda a elección).
-    private const val SEARCH_URL = "https://duckduckgo.com/?q="
-
     private val IPV4 = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
 
     /** Convierte lo que se escribe en la barra en una URL cargable, o en una búsqueda. */
-    fun resolve(input: String): String? {
+    fun resolve(input: String, searchUrl: String): String? {
         val text = input.trim()
         if (text.isEmpty()) return null
         if (text.startsWith("http://", true) || text.startsWith("https://", true)) return text
@@ -21,7 +18,7 @@ object UrlUtils {
             val local = host.equals("localhost", true) || IPV4.matches(host)
             return (if (local) "http://" else "https://") + text
         }
-        return SEARCH_URL + URLEncoder.encode(text, "UTF-8")
+        return searchUrl + URLEncoder.encode(text, "UTF-8")
     }
 
     /** Lo que se muestra en la barra cuando no se está editando: solo el dominio. */

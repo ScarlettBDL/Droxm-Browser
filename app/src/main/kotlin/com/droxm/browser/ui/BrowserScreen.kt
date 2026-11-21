@@ -53,27 +53,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.droxm.browser.settings.AppSettings
+import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.tabs.BrowserTab
 import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.util.UrlUtils
 
-/** Ajustes de interfaz. En el paso de personalización esto se guarda con DataStore y se edita desde una pantalla de ajustes. */
-data class UiSettings(
-    val barOnTop: Boolean = false,
-)
-
 @Composable
-fun BrowserScreen(manager: TabManager, modifier: Modifier = Modifier) {
+fun BrowserScreen(manager: TabManager, settings: AppSettings, modifier: Modifier = Modifier) {
     val tab = manager.activeTab
     val focusManager = LocalFocusManager.current
     var showSwitcher by remember { mutableStateOf(false) }
-    val settings = remember { UiSettings() }
+    var showSettings by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showSwitcher || tab?.canGoBack == true) {
-        if (showSwitcher) showSwitcher = false else tab?.session?.goBack()
+    BackHandler(enabled = showSettings || showSwitcher || tab?.canGoBack == true) {
+        when {
+            showSettings -> showSettings = false
+            showSwitcher -> showSwitcher = false
+            else -> tab?.session?.goBack()
+        }
     }
 
     Box(
@@ -90,19 +92,25 @@ fun BrowserScreen(manager: TabManager, modifier: Modifier = Modifier) {
                         BrowserBar(
                             manager = manager,
                             tab = tab,
+                            settings = settings,
                             onShowTabs = {
                                 focusManager.clearFocus()
                                 showSwitcher = true
+                            },
+                            onOpenSettings = {
+                                focusManager.clearFocus()
+                                showSettings = true
                             },
                         )
                     }
                 }
 
-                if (settings.barOnTop) bar()
+                val onTop = settings.barPosition == BarPosition.TOP
+                if (onTop) bar()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     PageContent(tab, manager.incognitoIsolated)
                 }
-                if (!settings.barOnTop) bar()
+                if (!onTop) bar()
             }
         }
 
@@ -110,6 +118,14 @@ fun BrowserScreen(manager: TabManager, modifier: Modifier = Modifier) {
             TabSwitcher(
                 manager = manager,
                 onClose = { showSwitcher = false },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        if (showSettings) {
+            SettingsScreen(
+                settings = settings,
+                onClose = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -168,39 +184,47 @@ private fun PageContent(tab: BrowserTab, incognitoIsolated: Boolean) {
 private fun BrowserBar(
     manager: TabManager,
     tab: BrowserTab,
+    settings: AppSettings,
     onShowTabs: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val tabCount = manager.tabs.count { it.incognito == tab.incognito }
+    val barHeight = settings.barSize.dp.dp
 
     Surface(tonalElevation = 3.dp, modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = { tab.session?.goBack() },
-                enabled = tab.canGoBack,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
-            }
-            IconButton(
-                onClick = { tab.session?.goForward() },
-                enabled = tab.canGoForward,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Adelante")
+            if (settings.showNavButtons) {
+                IconButton(
+                    onClick = { tab.session?.goBack() },
+                    enabled = tab.canGoBack,
+                    modifier = Modifier.size(barHeight),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                }
+                IconButton(
+                    onClick = { tab.session?.goForward() },
+                    enabled = tab.canGoForward,
+                    modifier = Modifier.size(barHeight),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Adelante")
+                }
+            } else {
+                Spacer(Modifier.width(8.dp))
             }
 
             AddressField(
                 tab = tab,
+                height = barHeight,
                 onSubmit = { manager.navigate(tab, it) },
                 modifier = Modifier.weight(1f),
             )
 
-            IconButton(onClick = onShowTabs, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = onShowTabs, modifier = Modifier.size(barHeight)) {
                 val outline = MaterialTheme.colorScheme.onSurface
                 Box(
                     modifier = Modifier
@@ -218,7 +242,7 @@ private fun BrowserBar(
             }
 
             Box {
-                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(barHeight)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Menú")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -251,6 +275,13 @@ private fun BrowserBar(
                             manager.close(tab.id)
                         },
                     )
+                    DropdownMenuItem(
+                        text = { Text("Ajustes") },
+                        onClick = {
+                            menuOpen = false
+                            onOpenSettings()
+                        },
+                    )
                 }
             }
         }
@@ -260,6 +291,7 @@ private fun BrowserBar(
 @Composable
 private fun AddressField(
     tab: BrowserTab,
+    height: Dp,
     onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -274,7 +306,7 @@ private fun AddressField(
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceVariant,
-        modifier = modifier.height(40.dp),
+        modifier = modifier.height(height),
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),

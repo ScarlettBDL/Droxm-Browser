@@ -21,10 +21,11 @@ jobs:
         with:
           gradle-version: 8.10.2
 
-      - name: Compilar APK debug
-        run: gradle assembleDebug --stacktrace
+      # Se compila en modo release (R8 + sin código de debug): es bastante más rápido que el APK debug.
+      - name: Compilar APK release
+        run: gradle assembleRelease --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: droxm-browser-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: droxm-browser
+          path: app/build/outputs/apk/release/*.apk

@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.droxm.browser.settings.ThemeMode
 
 private val LightColors = lightColorScheme(primary = Color(0xFF6C4DFF))
 private val DarkColors = darkColorScheme(primary = Color(0xFFCBB8FF))
@@ -29,10 +30,15 @@ private val IncognitoColors = darkColorScheme(
 
 @Composable
 fun DroxmTheme(
+    mode: ThemeMode = ThemeMode.SYSTEM,
     forceDark: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val dark = forceDark || isSystemInDarkTheme()
+    val dark = forceDark || when (mode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     val context = LocalContext.current
 
     val colors = when {
