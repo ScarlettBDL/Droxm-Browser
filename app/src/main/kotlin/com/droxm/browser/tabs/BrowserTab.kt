@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.droxm.browser.engine.EngineSession
@@ -25,6 +26,12 @@ class BrowserTab(
     var canGoBack by mutableStateOf(false)
     var canGoForward by mutableStateOf(false)
 
+    /** Pide la versión de escritorio de los sitios. */
+    var desktop by mutableStateOf(false)
+
+    /** Grupo al que pertenece (0 = ninguno). */
+    var groupId by mutableLongStateOf(NO_GROUP)
+
     var session by mutableStateOf<EngineSession?>(null)
 
     /** Estado guardado (historial de navegación, scroll) mientras la pestaña está dormida. Solo en memoria. */
@@ -35,4 +42,8 @@ class BrowserTab(
     /** Pestaña vacía: se muestra la página de inicio en vez de un WebView. */
     val isHome: Boolean
         get() = url.isBlank()
+
+    companion object {
+        const val NO_GROUP = 0L
+    }
 }

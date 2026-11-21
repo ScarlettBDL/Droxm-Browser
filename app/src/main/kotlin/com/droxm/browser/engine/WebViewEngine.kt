@@ -6,9 +6,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Message
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -24,6 +27,9 @@ import org.json.JSONObject
 
 private const val INCOGNITO_PROFILE = "droxm_incognito"
 
+private const val DESKTOP_USER_AGENT =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
 class WebViewEngine(private val context: Context) : BrowserEngine {
 
     private val profilesSupported: Boolean =
@@ -34,6 +40,7 @@ class WebViewEngine(private val context: Context) : BrowserEngine {
 
     override fun createSession(
         incognito: Boolean,
+        desktop: Boolean,
         delegate: EngineDelegate,
         restoreFrom: Bundle?,
         initialUrl: String?,
@@ -49,6 +56,7 @@ class WebViewEngine(private val context: Context) : BrowserEngine {
         val lite = incognito && !profilesSupported
 
         val session = WebViewSession(webView, delegate, lite = lite, isolated = isolated)
+        if (desktop) session.applyDesktopUserAgent(true)
 
         val restored = restoreFrom != null && webView.restoreState(restoreFrom) != null
         if (!restored && initialUrl != null) webView.loadUrl(initialUrl)
@@ -78,6 +86,9 @@ private class WebViewSession(
 
     override val view: View
         get() = webView
+
+    // User-agent móvil de este WebView (se guarda para poder volver a él al salir del modo escritorio).
+    private var mobileUserAgent: String = ""
 
     private val client = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -205,7 +216,84 @@ private class WebViewSession(
         configure()
         webView.webViewClient = client
         webView.webChromeClient = chrome
+
+        // Archivos que la página manda a descargar (PDF, APK, zip, etc.).
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+            delegate.onDownload(
+                DownloadRequest(
+                    url = url,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    cookie = cookieFor(url),
+                    referer = webView.url,
+                ),
+            )
+        }
+
+        // Mantener apretado un enlace o una imagen abre el menú contextual.
+        webView.setOnLongClickListener { handleLongPress() }
     }
+
+    private fun handleLongPress(): Boolean {
+        val result = webView.hitTestResult
+        val extra = result.extra
+        when (result.type) {
+            WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                if (extra.isNullOrBlank()) return false
+                delegate.onLongPress(HitInfo(linkUrl = extra, imageUrl = null))
+                return true
+            }
+            WebView.HitTestResult.IMAGE_TYPE -> {
+                if (extra.isNullOrBlank()) return false
+                delegate.onLongPress(HitInfo(linkUrl = null, imageUrl = extra))
+                return true
+            }
+            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                // Imagen que además es un enlace: hay que pedirle al WebView la dirección del enlace.
+                val handler = Handler(Looper.getMainLooper()) { message ->
+                    val link = message.data.getString("url")
+                    val image = message.data.getString("src") ?: extra
+                    delegate.onLongPress(HitInfo(linkUrl = link, imageUrl = image))
+                    true
+                }
+                webView.requestFocusNodeHref(handler.obtainMessage())
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun cookieFor(url: String): String? = try {
+        if (isolated) {
+            ProfileStore.getInstance().getProfile(INCOGNITO_PROFILE)?.cookieManager?.getCookie(url)
+        } else {
+            CookieManager.getInstance().getCookie(url)
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Cambia solo el user-agent (sin recargar). */
+    fun applyDesktopUserAgent(enabled: Boolean) {
+        webView.settings.userAgentString = if (enabled) DESKTOP_USER_AGENT else mobileUserAgent
+    }
+
+    override fun setDesktopMode(enabled: Boolean) {
+        applyDesktopUserAgent(enabled)
+        webView.reload()
+    }
+
+    override fun downloadRequest(url: String, isImage: Boolean): DownloadRequest =
+        DownloadRequest(
+            url = url,
+            userAgent = webView.settings.userAgentString,
+            contentDisposition = null,
+            mimeType = null,
+            cookie = cookieFor(url),
+            referer = webView.url,
+            isImage = isImage,
+        )
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configure() {
@@ -223,7 +311,8 @@ private class WebViewSession(
         s.setSupportMultipleWindows(true)
         s.javaScriptCanOpenWindowsAutomatically = false
         // Sin el "; wv" muchos sitios sirven la versión móvil normal en vez de rechazar el WebView.
-        s.userAgentString = s.userAgentString.replace("; wv", "")
+        mobileUserAgent = s.userAgentString.replace("; wv", "")
+        s.userAgentString = mobileUserAgent
     }
 
     private fun publishNavigation(view: WebView?) {

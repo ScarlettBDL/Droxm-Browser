@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -62,6 +63,7 @@ import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.tabs.BrowserTab
 import com.droxm.browser.tabs.TabManager
+import com.droxm.browser.util.Actions
 import com.droxm.browser.util.UrlUtils
 
 @Composable
@@ -142,6 +144,9 @@ fun BrowserScreen(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+
+        // Menú de enlace/imagen (al mantener apretado algo en la página).
+        manager.hit?.let { LinkMenu(manager, it) }
     }
 }
 
@@ -211,7 +216,9 @@ private fun BrowserBar(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
+    var addressFocused by remember { mutableStateOf(false) }
     val tabCount = manager.tabs.count { it.incognito == tab.incognito }
     val barHeight = settings.barSize.dp.dp
 
@@ -220,7 +227,10 @@ private fun BrowserBar(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (settings.showNavButtons) {
+            if (addressFocused) {
+                // Escribiendo en la barra: se esconden los botones para que la dirección use todo el ancho.
+                Spacer(Modifier.width(8.dp))
+            } else if (settings.showNavButtons) {
                 IconButton(
                     onClick = { tab.session?.goBack() },
                     enabled = tab.canGoBack,
@@ -243,10 +253,11 @@ private fun BrowserBar(
                 tab = tab,
                 height = barHeight,
                 onSubmit = { manager.navigate(tab, it) },
+                onFocusChange = { addressFocused = it },
                 modifier = Modifier.weight(1f),
             )
 
-            IconButton(onClick = onShowTabs, modifier = Modifier.size(barHeight)) {
+            if (!addressFocused) IconButton(onClick = onShowTabs, modifier = Modifier.size(barHeight)) {
                 val outline = MaterialTheme.colorScheme.onSurface
                 Box(
                     modifier = Modifier
@@ -263,7 +274,7 @@ private fun BrowserBar(
                 }
             }
 
-            Box {
+            if (!addressFocused) Box {
                 IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(barHeight)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Menú")
                 }
@@ -291,6 +302,36 @@ private fun BrowserBar(
                         },
                     )
                     DropdownMenuItem(
+                        text = { Text("Copiar enlace") },
+                        enabled = !tab.isHome,
+                        onClick = {
+                            menuOpen = false
+                            Actions.copy(context, tab.url)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Compartir") },
+                        enabled = !tab.isHome,
+                        onClick = {
+                            menuOpen = false
+                            Actions.share(context, tab.url)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (tab.desktop) "Sitio de escritorio ✓" else "Sitio de escritorio") },
+                        onClick = {
+                            menuOpen = false
+                            manager.toggleDesktop(tab)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Descargas") },
+                        onClick = {
+                            menuOpen = false
+                            Actions.openDownloads(context)
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Cerrar pestaña") },
                         onClick = {
                             menuOpen = false
@@ -315,6 +356,7 @@ private fun AddressField(
     tab: BrowserTab,
     height: Dp,
     onSubmit: (String) -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -328,7 +370,8 @@ private fun AddressField(
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceVariant,
-        modifier = modifier.height(height),
+        // Altura mínima: al escribir, la barra crece para mostrar la dirección completa (varias líneas).
+        modifier = modifier.heightIn(min = height),
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -346,8 +389,20 @@ private fun AddressField(
 
             BasicTextField(
                 value = shown,
-                onValueChange = { if (focused) typed = it },
-                singleLine = true,
+                onValueChange = { value ->
+                    if (focused) {
+                        if (value.text.contains('\n')) {
+                            // Algunos teclados mandan un salto de línea en vez de "Ir": se toma como enviar.
+                            onSubmit(value.text.replace("\n", ""))
+                            focusManager.clearFocus()
+                        } else {
+                            typed = value
+                        }
+                    }
+                },
+                // Sin foco: una línea con el dominio. Con foco: la URL completa, en hasta 5 líneas.
+                singleLine = !focused,
+                maxLines = if (focused) 5 else 1,
                 textStyle = TextStyle(color = colors.onSurface, fontSize = 15.sp),
                 cursorBrush = SolidColor(colors.primary),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
@@ -359,10 +414,12 @@ private fun AddressField(
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .padding(vertical = 6.dp)
                     .onFocusChanged { state ->
                         if (state.isFocused && !focused) {
                             typed = TextFieldValue(tab.url, TextRange(0, tab.url.length))
                         }
+                        if (state.isFocused != focused) onFocusChange(state.isFocused)
                         focused = state.isFocused
                     },
                 decorationBox = { inner ->
