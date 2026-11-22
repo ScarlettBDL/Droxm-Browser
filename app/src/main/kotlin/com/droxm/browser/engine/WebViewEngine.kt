@@ -251,6 +251,9 @@ private class WebViewSession(
 
         // Mantener apretado un enlace o una imagen abre el menú contextual.
         webView.setOnLongClickListener { handleLongPress() }
+
+        // Resultados de "buscar en la página".
+        webView.setFindListener { ordinal, count, _ -> onFindResult?.invoke(ordinal, count) }
     }
 
     private fun handleLongPress(): Boolean {
@@ -295,6 +298,20 @@ private class WebViewSession(
     /** Cambia solo el user-agent (sin recargar). */
     fun applyDesktopUserAgent(enabled: Boolean) {
         webView.settings.userAgentString = if (enabled) DESKTOP_USER_AGENT else mobileUserAgent
+    }
+
+    override var onFindResult: ((Int, Int) -> Unit)? = null
+
+    override fun findAll(query: String) = webView.findAllAsync(query)
+
+    override fun findNext(forward: Boolean) = webView.findNext(forward)
+
+    override fun clearFind() {
+        try {
+            webView.clearMatches()
+        } catch (e: Exception) {
+            // La vista ya se destruyó.
+        }
     }
 
     override fun setDesktopMode(enabled: Boolean) {

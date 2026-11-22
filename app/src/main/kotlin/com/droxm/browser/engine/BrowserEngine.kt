@@ -55,6 +55,13 @@ interface EngineSession {
     /** Pide la versión de escritorio (o vuelve a la móvil) y recarga la página. */
     fun setDesktopMode(enabled: Boolean)
 
+    /** Resultado de "buscar en la página": (coincidencia actual, total). Lo llama el motor en el hilo de la interfaz. */
+    var onFindResult: ((Int, Int) -> Unit)?
+
+    fun findAll(query: String)
+    fun findNext(forward: Boolean)
+    fun clearFind()
+
     /** Arma una descarga para [url] con las cookies y el referer de esta pestaña. */
     fun downloadRequest(url: String, isImage: Boolean): DownloadRequest
 }

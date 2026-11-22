@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.History
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.DownloadRequest
 import com.droxm.browser.engine.EngineDelegate
@@ -29,6 +30,7 @@ class TabManager(
     private val settings: AppSettings,
     private val store: TabStore,
     private val frequentSites: FrequentSites,
+    private val history: History,
     private val downloader: Downloader,
 ) {
 
@@ -356,6 +358,7 @@ class TabManager(
 
         override fun onTitleChanged(title: String) {
             tab.title = title
+            if (!tab.incognito) history.updateTitle(tab.url, title)
         }
 
         override fun onProgressChanged(progress: Int) {
@@ -367,6 +370,7 @@ class TabManager(
             // Al terminar de cargar ya están la URL y el título finales: se guardan.
             if (!loading && !tab.incognito) {
                 frequentSites.record(tab.url)
+                history.record(tab.url, tab.title)
                 persist()
             }
         }

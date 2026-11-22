@@ -58,7 +58,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.droxm.browser.data.Bookmarks
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.History
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.tabs.BrowserTab
@@ -71,6 +73,8 @@ fun BrowserScreen(
     manager: TabManager,
     settings: AppSettings,
     frequentSites: FrequentSites,
+    history: History,
+    bookmarks: Bookmarks,
     modifier: Modifier = Modifier,
 ) {
     val tab = manager.activeTab
@@ -78,10 +82,18 @@ fun BrowserScreen(
     var showSwitcher by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showSettings || showSwitcher || tab?.canGoBack == true) {
+    // 0 = favoritos, 1 = historial, null = cerrado.
+    var library by remember { mutableStateOf<Int?>(null) }
+    // Id de la pestaña en la que está abierta la búsqueda en página.
+    var findTabId by remember { mutableStateOf<Long?>(null) }
+    val finding = tab != null && findTabId == tab.id
+
+    BackHandler(enabled = library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
+            library != null -> library = null
             showSettings -> showSettings = false
             showSwitcher -> showSwitcher = false
+            finding -> findTabId = null
             else -> tab?.session?.goBack()
         }
     }
@@ -101,6 +113,12 @@ fun BrowserScreen(
                             manager = manager,
                             tab = tab,
                             settings = settings,
+                            bookmarks = bookmarks,
+                            onFind = { findTabId = tab.id },
+                            onOpenLibrary = {
+                                focusManager.clearFocus()
+                                library = it
+                            },
                             onShowTabs = {
                                 focusManager.clearFocus()
                                 showSwitcher = true
@@ -115,6 +133,7 @@ fun BrowserScreen(
 
                 val onTop = settings.barPosition == BarPosition.TOP
                 if (onTop) bar()
+                if (onTop && finding) key(tab.id) { FindBar(tab.session, onClose = { findTabId = null }) }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     PageContent(
                         tab = tab,
@@ -124,6 +143,7 @@ fun BrowserScreen(
                         onOpenSite = { url -> manager.navigate(tab, url) },
                     )
                 }
+                if (!onTop && finding) key(tab.id) { FindBar(tab.session, onClose = { findTabId = null }) }
                 if (!onTop) bar()
             }
         }
@@ -132,6 +152,20 @@ fun BrowserScreen(
             TabSwitcher(
                 manager = manager,
                 onClose = { showSwitcher = false },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        library?.let { initial ->
+            LibraryScreen(
+                initialTab = initial,
+                history = history,
+                bookmarks = bookmarks,
+                onOpen = { url ->
+                    library = null
+                    if (tab != null) manager.navigate(tab, url)
+                },
+                onClose = { library = null },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -212,6 +246,9 @@ private fun BrowserBar(
     manager: TabManager,
     tab: BrowserTab,
     settings: AppSettings,
+    bookmarks: Bookmarks,
+    onFind: () -> Unit,
+    onOpenLibrary: (Int) -> Unit,
     onShowTabs: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -302,6 +339,22 @@ private fun BrowserBar(
                         },
                     )
                     DropdownMenuItem(
+                        text = { Text(if (bookmarks.contains(tab.url)) "Quitar de favoritos ★" else "Agregar a favoritos") },
+                        enabled = !tab.isHome,
+                        onClick = {
+                            menuOpen = false
+                            bookmarks.toggle(tab.url, tab.title)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Buscar en la página") },
+                        enabled = !tab.isHome && tab.session != null,
+                        onClick = {
+                            menuOpen = false
+                            onFind()
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Copiar enlace") },
                         enabled = !tab.isHome,
                         onClick = {
@@ -322,6 +375,20 @@ private fun BrowserBar(
                         onClick = {
                             menuOpen = false
                             manager.toggleDesktop(tab)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Favoritos") },
+                        onClick = {
+                            menuOpen = false
+                            onOpenLibrary(0)
+                        },
+                    )
+                    if (!tab.incognito) DropdownMenuItem(
+                        text = { Text("Historial") },
+                        onClick = {
+                            menuOpen = false
+                            onOpenLibrary(1)
                         },
                     )
                     DropdownMenuItem(

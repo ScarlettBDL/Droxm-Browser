@@ -8,7 +8,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.engine.WebViewEngine
+import com.droxm.browser.data.Bookmarks
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.History
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.tabs.TabStore
@@ -21,6 +23,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var manager: TabManager
     private lateinit var settings: AppSettings
     private lateinit var frequentSites: FrequentSites
+    private lateinit var history: History
+    private lateinit var bookmarks: Bookmarks
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,9 +33,11 @@ class MainActivity : ComponentActivity() {
         settings = AppSettings(this)
         FilterUpdater.init(this)
         frequentSites = FrequentSites(this)
+        history = History(this)
+        bookmarks = Bookmarks(this)
         // Tiene que crearse acá (antes de que la actividad arranque) porque registra el pedido de permiso de descargas.
         val downloader = Downloader(this)
-        manager = TabManager(WebViewEngine(this), settings, TabStore(this), frequentSites, downloader)
+        manager = TabManager(WebViewEngine(this), settings, TabStore(this), frequentSites, history, downloader)
 
         // Se recuperan las pestañas de la sesión anterior; si hay un link de otra app, va en una pestaña nueva.
         val restored = manager.restore()
@@ -46,7 +52,7 @@ class MainActivity : ComponentActivity() {
                 mode = settings.themeMode,
                 forceDark = manager.activeTab?.incognito == true,
             ) {
-                BrowserScreen(manager, settings, frequentSites)
+                BrowserScreen(manager, settings, frequentSites, history, bookmarks)
             }
         }
     }
@@ -59,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         manager.onHostPause()
+        history.flush()
         super.onPause()
     }
 
