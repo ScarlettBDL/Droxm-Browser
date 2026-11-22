@@ -26,19 +26,37 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 - Ver solo el dominio en la barra (con candado si la conexión es HTTPS) y tocar para
   editar la dirección completa.
 - Usar los botones **atrás/adelante** o el gesto del sistema.
+- **Sugerencias** mientras escribís: favoritos e historial que coinciden (en incógnito, solo favoritos).
+- **Buscar en la página:** resalta las coincidencias y salta entre ellas.
 - Detener la carga o recargar con un toque.
 - Elegir Droxm como **navegador predeterminado**: los links que abrís desde otras apps
   caen en una pestaña nueva.
 - Los links de `mailto:`, `tel:` y similares se abren en la app que corresponda.
 
-### Pestañas
+### Pestañas y grupos
 
-- Pestañas ilimitadas, con tarjetas en una grilla para verlas y cambiarte rápido.
+- Pestañas ilimitadas, con tarjetas con **miniatura** en una grilla para verlas y cambiarte rápido.
+- **Grupos de pestañas** (como en Chrome o Brave): mantené apretada una pestaña para
+  agruparla. El grupo se ve como una sola tarjeta con nombre y color; al tocarla se abre con
+  todas sus pestañas. Se pueden renombrar, cambiar de color, desagrupar o cerrar de una vez.
+- **Mantené apretado un link** en una página para abrirlo en una pestaña nueva (en el mismo
+  grupo), en incógnito, copiarlo o compartirlo.
 - **Pestañas dormidas:** solo las que estás usando mantienen su página viva. Las demás se
   guardan y se recuperan al abrirlas, así el teléfono no se queda sin memoria.
 - Elegís cuántas pestañas pueden estar activas a la vez (de 1 a 6).
 - Al cerrar y volver a abrir la app, **se restauran tus pestañas normales**.
 - Cerrar una pestaña o todas de una vez.
+
+### Favoritos, historial y descargas
+
+- **Favoritos:** menú ⋮ → *Agregar a favoritos*. Con buscador.
+- **Historial** (solo pestañas normales): hasta 3000 páginas, agrupadas por día, con
+  buscador, borrado de a una o todo junto.
+- **Descargas:** archivos e imágenes (mantené apretada una imagen) se guardan en la carpeta
+  Descargas con el gestor del sistema.
+- **Barra de direcciones** que muestra solo el dominio y, al tocarla, la URL completa en
+  varias líneas.
+- **Sitio de escritorio**, copiar enlace y compartir desde el menú.
 
 ### Modo incógnito
 
@@ -55,7 +73,8 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 - **Tu propio fondo:** una foto, un GIF/WebP animado o un video corto en loop y sin
   sonido. Se recorta solo para llenar la pantalla.
 - **Control de oscuridad** para que el texto se lea bien sobre fondos claros.
-- **Sitios más visitados** en una grilla: aprendé tus accesos de un toque. Mantené
+- **Sitios más visitados** en una grilla; un sitio aparece recién después de **3 visitas**.
+  Elegís cuántos mostrar (3, 4, 6, 8 o 12) y dónde: arriba, al centro o abajo. Mantené
   apretado un sitio para quitarlo de la lista.
 - Podés ocultar el título "Droxm" o la grilla de sitios si preferís algo más limpio.
 
@@ -69,9 +88,13 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 
 ### Privacidad
 
-- **Bloqueador de anuncios y rastreadores** incluido, activado por defecto. Bloquea más
-  de 100 redes de publicidad y seguimiento antes de que salgan a la red, y esconde los
-  huecos que dejan.
+- **Bloqueador de anuncios y rastreadores** incluido, activado por defecto. Usa
+  **EasyList y EasyPrivacy** con un motor escrito en **Rust** (ver más abajo), así que
+  filtra por dominio, ruta, tipo de recurso y si el pedido es de un tercero. Si el motor
+  nativo no estuviera disponible, usa una lista corta de más de 100 redes de publicidad.
+- Las listas se descargan solas desde `easylist.to` (con Wi-Fi, cada 7 días) o con
+  *Ajustes → Actualizar ahora*. Es la única conexión que hace la app además de tu
+  navegación.
 - **Todo queda en tu teléfono.** No hay cuentas, servidores propios, estadísticas ni
   telemetría.
 - El navegador no puede leer tus archivos locales.
@@ -85,7 +108,7 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 | --- | --- |
 | **Android** | 8.0 (API 26) o superior |
 | **WebView del sistema** | Una versión reciente (se actualiza desde Play Store) |
-| **Permisos** | Solo acceso a Internet |
+| **Permisos** | Internet y estado de la red (para actualizar listas solo con Wi-Fi). Hasta Android 9, además, guardar descargas |
 | **Conexión** | Wi-Fi o datos para navegar |
 | **Espacio** | El del APK; el fondo de inicio es opcional (hasta 150 MB) |
 
@@ -122,8 +145,8 @@ perder los ajustes.
 - **Buscar o navegar:** tocá la barra, escribí y dale a Ir. Un texto cualquiera se busca;
   `algo.com` se abre como página.
 - **Pestañas:** el cuadradito con el número, a la derecha de la barra, abre la grilla.
-- **Menú:** los tres puntos (⋮) tienen nueva pestaña, nueva pestaña incógnito, recargar,
-  cerrar y ajustes.
+- **Menú:** los tres puntos (⋮) tienen pestañas nuevas, recargar, favoritos, buscar en la
+  página, copiar/compartir, sitio de escritorio, historial, descargas y ajustes.
 - **Atrás:** el gesto o botón del sistema vuelve en la página; si ya no hay historial, no
   hace nada.
 - **Inicio:** los sitios que más visitás aparecen solos. Mantené apretado uno para
@@ -142,9 +165,12 @@ perder los ajustes.
 | Oscuridad del fondo | 0–90 % | 35 % |
 | Mostrar título "Droxm" | Sí / No | Sí |
 | Sitios más visitados | Sí / No | Sí |
+| Cantidad de sitios | 3 / 4 / 6 / 8 / 12 | 8 |
+| Posición de los sitios | Arriba / Centro / Abajo | Centro |
 | Tema | Sistema / Claro / Oscuro | Sistema |
 | Buscador | DuckDuckGo / Google / Bing / Brave | DuckDuckGo |
 | Bloquear anuncios | Sí / No | Sí |
+| Listas de filtros | Actualizar ahora | Automático con Wi-Fi |
 | Pestañas activas a la vez | 1–6 | 3 |
 
 Los ajustes se guardan al instante: no hay botón de "guardar".
@@ -157,8 +183,9 @@ Los ajustes se guardan al instante: no hay botón de "guardar".
 Sí. No hay versión paga, cuentas ni anuncios dentro de la app.
 
 **¿Bloquea los anuncios de YouTube?**
-No. El bloqueador trabaja por dominio y YouTube sirve sus anuncios desde su propio
-dominio. Sí bloquea la publicidad y el seguimiento de la mayoría de los sitios.
+No. YouTube sirve sus anuncios desde su propio dominio y dentro del video, y el
+bloqueador solo filtra pedidos de red. Sí bloquea la publicidad y el seguimiento de la
+mayoría de los sitios.
 
 **¿El modo incógnito es realmente privado?**
 En equipos con WebView moderno, sí: usa un perfil aparte y borra sus datos al cerrar. Si
@@ -171,11 +198,12 @@ Las normales se restauran al volver a abrir. Las de incógnito nunca se guardan,
 propósito.
 
 **¿Puedo descargar archivos o abrir PDFs?**
-Todavía no. Esta versión no incluye gestor de descargas ni visor de PDF.
+Descargar sí (archivos e imágenes, a la carpeta Descargas). No hay visor de PDF propio:
+el archivo se descarga y se abre con otra app.
 
 **¿Necesita permisos raros?**
-Solo Internet. Para elegir un fondo se usa el selector del sistema, así que la app no
-necesita acceso a tus fotos.
+No: Internet, estado de la red y (solo hasta Android 9) guardar descargas. Para elegir un
+fondo se usa el selector del sistema, así que la app no necesita acceso a tus fotos.
 
 **¿Funciona sin Google Play?**
 Sí, el APK se instala aparte. Eso sí: el motor WebView lo provee el sistema, así que
@@ -188,15 +216,37 @@ La interfaz está pensada en español y todavía no tiene otros idiomas.
 
 ## Limitaciones conocidas
 
-- Sin historial ni marcadores en la interfaz.
-- Sin gestor de descargas ni lector de PDF.
-- El bloqueador es una lista fija de dominios: no usa listas comunitarias tipo EasyList
-  ni filtra por ruta.
+- Sin lector de PDF propio.
+- El bloqueador solo filtra pedidos de red: no soporta reglas con expresiones regulares ni
+  `$redirect`/`$csp`, y los selectores de ocultamiento (`##`) de EasyList no se aplican
+  (solo un ocultamiento básico de anuncios de Google). El tipo de recurso se deduce de las
+  cabeceras y la extensión, porque WebView no lo informa.
+- Las miniaturas del selector de pestañas solo viven en memoria: tras reiniciar la app se
+  ven las iniciales hasta volver a entrar a cada pestaña.
 - La restauración de sesión guarda la dirección y el título de cada pestaña, no todo su
   historial.
 - El modo incógnito depende del WebView del sistema.
 - Solo en español.
 - Sin sincronización entre dispositivos.
+
+---
+
+## Para desarrolladores
+
+Kotlin + Jetpack Compose sobre WebView. Se compila **solo con GitHub Actions** (no hace
+falta el SDK de Android local).
+
+- `app/` — la aplicación. El motor del navegador está detrás de las interfaces
+  `BrowserEngine`/`EngineSession`, así que cambiar WebView por otro motor es escribir otra
+  implementación.
+- `rust/core/` — núcleo del bloqueador, sin dependencias: parser de listas, índices por
+  token y dominio, excepciones (`@@`, `$important`, `$badfilter`), clasificación de
+  recursos y deduplicación. `cargo test` y `cargo run --release --example bench` funcionan
+  en cualquier PC.
+- `rust/jni/` — puente JNI. Una sola llamada nativa por pedido; las listas grandes pasan
+  por archivos, no por la JVM.
+- `.github/` — el CI prueba el núcleo, compila la librería para arm64, armv7 y x86_64 y arma
+  el APK. Si la parte de Rust fallara, el APK sale igual con el bloqueador de reserva.
 
 ---
 
