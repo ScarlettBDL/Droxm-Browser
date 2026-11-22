@@ -13,3 +13,7 @@
 # La debug.keystore SI se versiona a propósito (ver README).
 *.jks
 release.keystore
+
+# Rust
+/rust/*/target/
+/app/src/main/jniLibs/

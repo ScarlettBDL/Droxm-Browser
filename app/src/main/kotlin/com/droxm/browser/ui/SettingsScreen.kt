@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.settings.BarSize
@@ -145,10 +146,24 @@ fun SettingsScreen(
 
                 SwitchSetting(
                     title = "Bloquear anuncios",
-                    description = "Bloquea dominios de publicidad conocidos. No cubre los anuncios propios de cada sitio (por ejemplo los de YouTube).",
+                    description = "Bloquea anuncios y rastreadores con EasyList y EasyPrivacy. No cubre los anuncios propios de cada sitio (por ejemplo los de YouTube).",
                     checked = settings.adBlock,
                     onChange = settings::updateAdBlock,
                 )
+
+                if (settings.adBlock) {
+                    Column {
+                        Text("Listas de filtros", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            FilterUpdater.status.ifEmpty { "EasyList + EasyPrivacy" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = { FilterUpdater.updateNow() }, enabled = !FilterUpdater.busy) {
+                            Text(if (FilterUpdater.busy) "Actualizando…" else "Actualizar ahora")
+                        }
+                    }
+                }
 
                 Column {
                     Text("Sitios más visitados", style = MaterialTheme.typography.bodyLarge)

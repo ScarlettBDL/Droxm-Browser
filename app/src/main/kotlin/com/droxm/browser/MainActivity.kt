@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.engine.WebViewEngine
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.settings.AppSettings
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         settings = AppSettings(this)
+        FilterUpdater.init(this)
         frequentSites = FrequentSites(this)
         // Tiene que crearse acá (antes de que la actividad arranque) porque registra el pedido de permiso de descargas.
         val downloader = Downloader(this)

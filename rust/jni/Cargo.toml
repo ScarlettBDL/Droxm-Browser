@@ -1,0 +1,24 @@
+[package]
+name = "droxm-adblock-jni"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "droxm_adblock"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+droxm-adblock-core = { path = "../core" }
+
+# Workspace propio: se compila con `cargo ndk` desde esta carpeta sin tocar el núcleo.
+[workspace]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+# Se necesita "unwind" para que catch_unwind pueda frenar un pánico antes de que cruce a Java.
+panic = "unwind"

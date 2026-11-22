@@ -1,0 +1,17 @@
+[package]
+name = "droxm-adblock-core"
+version = "0.1.0"
+edition = "2021"
+description = "Motor de filtrado de red para Droxm Browser (sin dependencias)"
+
+[lib]
+name = "droxm_adblock_core"
+path = "src/lib.rs"
+
+# Este crate NO tiene dependencias a propósito: se puede compilar y probar sin red.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

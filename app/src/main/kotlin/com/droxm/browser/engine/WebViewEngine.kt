@@ -90,6 +90,10 @@ private class WebViewSession(
     // User-agent móvil de este WebView (se guarda para poder volver a él al salir del modo escritorio).
     private var mobileUserAgent: String = ""
 
+    // Página principal actual: es el "origen" de los pedidos de subrecursos (para reglas de terceros y por dominio).
+    @Volatile
+    private var pageUrl: String? = null
+
     private val client = object : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             delegate.onLoadingChanged(true)
@@ -106,9 +110,23 @@ private class WebViewSession(
 
         // Anuncios de dominios conocidos: respuesta vacía al instante, sin pasar por la red (y sin pantalla de error).
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-            if (request == null || request.isForMainFrame) return null
+            if (request == null) return null
             val uri = request.url
-            return if (AdBlocker.shouldBlock(uri.host)) AdBlocker.emptyResponse(uri.path ?: "") else null
+            // Esta función corre en un hilo de red: no se puede llamar a WebView.getUrl(). Se recuerda la página
+            // principal desde acá, que es lo primero que se pide al navegar.
+            if (request.isForMainFrame) {
+                pageUrl = uri.toString()
+                return null
+            }
+            val headers = request.requestHeaders
+            return AdBlocker.intercept(
+                url = uri.toString(),
+                host = uri.host,
+                path = uri.path ?: "",
+                source = pageUrl,
+                accept = headers?.get("Accept"),
+                dest = headers?.get("Sec-Fetch-Dest"),
+            )
         }
 
         // Si algo que NO es la página principal falla (un anuncio bloqueado por DNS, por ejemplo), el WebView dibuja

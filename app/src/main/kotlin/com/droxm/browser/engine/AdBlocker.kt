@@ -8,8 +8,8 @@ import java.io.ByteArrayInputStream
  * Bloqueo de anuncios por dominio. Las peticiones a estos dominios se contestan al instante con una
  * respuesta vacía, así nunca llegan a la red y el WebView no muestra pantallas de error.
  *
- * La lista es corta a propósito (dominios de publicidad conocidos); no tapa los anuncios propios de
- * un sitio (por ejemplo los de YouTube). Se puede ampliar o cargar desde una lista de filtros más adelante.
+ * Con el motor nativo (Rust) y las listas descargadas se filtra con EasyList/EasyPrivacy; mientras no estén
+ * disponibles, se usa esta lista corta de dominios. No tapa los anuncios propios de un sitio (por ejemplo los de YouTube).
  */
 object AdBlocker {
 
@@ -61,18 +61,45 @@ object AdBlocker {
         return false
     }
 
+    /**
+     * Decide qué hacer con un pedido de un subrecurso. Devuelve la respuesta vacía si hay que bloquearlo, o null.
+     * Con el motor nativo cargado se evalúa todo en una sola llamada; si no, se usa la lista corta de dominios.
+     */
+    fun intercept(url: String, host: String?, path: String, source: String?, accept: String?, dest: String?): WebResourceResponse? {
+        if (!enabled) return null
+        if (NativeAdblock.ready) {
+            val v = NativeAdblock.check(url, source, accept, dest)
+            return if ((v and 1) != 0) emptyResponseFor(v shr 1) else null
+        }
+        return if (shouldBlock(host)) emptyResponse(path) else null
+    }
+
+    private fun empty(mime: String, status: Int = 200): WebResourceResponse =
+        if (status == 200) {
+            WebResourceResponse(mime, "utf-8", ByteArrayInputStream(ByteArray(0)))
+        } else {
+            WebResourceResponse(mime, "utf-8", status, "No Content", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+        }
+
+    /** Respuesta vacía adecuada al tipo de recurso (códigos de `ResourceType` en Rust). */
+    private fun emptyResponseFor(type: Int): WebResourceResponse = when (type) {
+        2 -> empty("text/html")
+        3 -> empty("application/javascript")
+        4 -> empty("text/css")
+        5 -> WebResourceResponse("image/gif", null, ByteArrayInputStream(PIXEL))
+        6, 9 -> empty("text/plain", 204)
+        else -> empty("text/plain")
+    }
+
     fun emptyResponse(path: String): WebResourceResponse {
         val p = path.lowercase()
         return when {
-            p.endsWith(".js") ->
-                WebResourceResponse("application/javascript", "utf-8", ByteArrayInputStream(ByteArray(0)))
-            p.endsWith(".css") ->
-                WebResourceResponse("text/css", "utf-8", ByteArrayInputStream(ByteArray(0)))
+            p.endsWith(".js") -> empty("application/javascript")
+            p.endsWith(".css") -> empty("text/css")
             p.endsWith(".gif") || p.endsWith(".png") || p.endsWith(".jpg") ||
                 p.endsWith(".jpeg") || p.endsWith(".webp") ->
                 WebResourceResponse("image/gif", null, ByteArrayInputStream(PIXEL))
-            else ->
-                WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+            else -> empty("text/plain")
         }
     }
 
