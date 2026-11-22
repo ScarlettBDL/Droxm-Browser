@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +88,8 @@ fun BrowserScreen(
     // Id de la pestaña en la que está abierta la búsqueda en página.
     var findTabId by remember { mutableStateOf<Long?>(null) }
     val finding = tab != null && findTabId == tab.id
+    // Lo que se está escribiendo en la barra (vacío si no tiene foco): de acá salen las sugerencias.
+    var typing by remember { mutableStateOf("") }
 
     BackHandler(enabled = library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
@@ -114,6 +117,7 @@ fun BrowserScreen(
                             tab = tab,
                             settings = settings,
                             bookmarks = bookmarks,
+                            onTyping = { typing = it },
                             onFind = { findTabId = tab.id },
                             onOpenLibrary = {
                                 focusManager.clearFocus()
@@ -142,6 +146,19 @@ fun BrowserScreen(
                         frequentSites = frequentSites,
                         onOpenSite = { url -> manager.navigate(tab, url) },
                     )
+                    // Se ignora lo escrito si es la URL actual entera (es lo que aparece seleccionado al tocar la barra).
+                    if (typing.isNotBlank() && typing != tab.url) {
+                        val suggestions = suggest(typing, bookmarks, history, useHistory = !tab.incognito)
+                        SuggestionList(
+                            query = typing.trim(),
+                            suggestions = suggestions,
+                            onPick = { value ->
+                                typing = ""
+                                focusManager.clearFocus()
+                                manager.navigate(tab, value)
+                            },
+                        )
+                    }
                 }
                 if (!onTop && finding) key(tab.id) { FindBar(tab.session, onClose = { findTabId = null }) }
                 if (!onTop) bar()
@@ -247,6 +264,7 @@ private fun BrowserBar(
     tab: BrowserTab,
     settings: AppSettings,
     bookmarks: Bookmarks,
+    onTyping: (String) -> Unit,
     onFind: () -> Unit,
     onOpenLibrary: (Int) -> Unit,
     onShowTabs: () -> Unit,
@@ -291,6 +309,7 @@ private fun BrowserBar(
                 height = barHeight,
                 onSubmit = { manager.navigate(tab, it) },
                 onFocusChange = { addressFocused = it },
+                onTyping = onTyping,
                 modifier = Modifier.weight(1f),
             )
 
@@ -424,12 +443,16 @@ private fun AddressField(
     height: Dp,
     onSubmit: (String) -> Unit,
     onFocusChange: (Boolean) -> Unit,
+    onTyping: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
     val colors = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf(TextFieldValue("")) }
+
+    // Avisa lo escrito para mostrar sugerencias; sin foco se limpia.
+    LaunchedEffect(focused, typed.text) { onTyping(if (focused) typed.text else "") }
 
     // Sin foco se ve solo el dominio; con foco, la URL completa seleccionada para reemplazarla.
     val shown = if (focused) typed else TextFieldValue(UrlUtils.displayHost(tab.url))
