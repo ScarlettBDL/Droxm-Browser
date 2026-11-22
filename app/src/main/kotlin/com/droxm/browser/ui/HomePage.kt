@@ -37,11 +37,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.settings.AppSettings
+import com.droxm.browser.settings.SitesPosition
 import com.droxm.browser.util.BackgroundFiles
 import kotlin.math.abs
 
-private const val COLUMNS = 4
-private const val MAX_SITES = 8
 
 /** Pantalla de una pestaña vacía. En incógnito se ve distinta: sin fondo propio ni sitios frecuentes. */
 @Composable
@@ -98,7 +97,13 @@ private fun NormalHome(
             )
         }
 
-        val sites = if (settings.showFrequentSites) frequentSites.sites.take(MAX_SITES) else emptyList()
+        val sites = if (settings.showFrequentSites) {
+            frequentSites.sites.filter { it.count >= FrequentSites.MIN_VISITS }.take(settings.homeSiteCount)
+        } else {
+            emptyList()
+        }
+        val position = settings.homeSitesPosition
+        val columns = if (settings.homeSiteCount == 3 || settings.homeSiteCount == 6) 3 else 4
 
         Column(
             modifier = Modifier
@@ -125,14 +130,21 @@ private fun NormalHome(
                 }
             }
 
-            if (sites.isNotEmpty()) {
+            // Posición "Centro": los sitios van debajo del título.
+            if (sites.isNotEmpty() && position == SitesPosition.CENTER) {
                 if (settings.showHomeTitle) Spacer(Modifier.height(32.dp))
-                SiteGrid(
-                    sites = sites,
-                    textColor = textColor,
-                    onOpen = onOpenSite,
-                    onRemove = { frequentSites.remove(it) },
-                )
+                SiteGrid(sites, columns, textColor, onOpenSite) { frequentSites.remove(it) }
+            }
+        }
+
+        // Arriba o abajo: el título queda en el centro y los sitios se pegan al borde.
+        if (sites.isNotEmpty() && position != SitesPosition.CENTER) {
+            Box(
+                modifier = Modifier
+                    .align(if (position == SitesPosition.TOP) Alignment.TopCenter else Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+            ) {
+                SiteGrid(sites, columns, textColor, onOpenSite) { frequentSites.remove(it) }
             }
         }
     }
@@ -141,12 +153,13 @@ private fun NormalHome(
 @Composable
 private fun SiteGrid(
     sites: List<FrequentSites.Site>,
+    columns: Int,
     textColor: Color,
     onOpen: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        sites.chunked(COLUMNS).forEach { row ->
+        sites.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth()) {
                 row.forEach { site ->
                     SiteTile(
@@ -158,7 +171,7 @@ private fun SiteGrid(
                     )
                 }
                 // Completa la última fila para que las columnas queden alineadas.
-                repeat(COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

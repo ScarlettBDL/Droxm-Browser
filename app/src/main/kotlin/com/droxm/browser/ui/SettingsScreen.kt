@@ -42,6 +42,7 @@ import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
 import com.droxm.browser.settings.BarSize
 import com.droxm.browser.settings.SearchEngine
+import com.droxm.browser.settings.SitesPosition
 import com.droxm.browser.settings.ThemeMode
 import com.droxm.browser.util.BackgroundFiles
 import kotlin.math.roundToInt
@@ -121,6 +122,25 @@ fun SettingsScreen(
                     checked = settings.showFrequentSites,
                     onChange = settings::updateShowFrequentSites,
                 )
+
+                if (settings.showFrequentSites) {
+                    ChoiceSetting(
+                        title = "Cantidad de sitios",
+                        description = "Solo aparecen sitios que visitaste 3 veces o más.",
+                        options = listOf(3, 4, 6, 8, 12),
+                        selected = settings.homeSiteCount,
+                        label = { it.toString() },
+                        onSelect = settings::updateHomeSiteCount,
+                    )
+
+                    ChoiceSetting(
+                        title = "Posición de los sitios",
+                        options = SitesPosition.entries,
+                        selected = settings.homeSitesPosition,
+                        label = { it.label },
+                        onSelect = settings::updateHomeSitesPosition,
+                    )
+                }
 
                 SectionTitle("Apariencia")
 

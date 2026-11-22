@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import com.droxm.browser.engine.EngineSession
 
 /**
@@ -33,6 +34,9 @@ class BrowserTab(
     var groupId by mutableLongStateOf(NO_GROUP)
 
     var session by mutableStateOf<EngineSession?>(null)
+
+    /** Miniatura de la última vez que se vio la pestaña (solo en memoria). */
+    var thumbnail by mutableStateOf<ImageBitmap?>(null)
 
     /** Estado guardado (historial de navegación, scroll) mientras la pestaña está dormida. Solo en memoria. */
     var savedState: Bundle? = null

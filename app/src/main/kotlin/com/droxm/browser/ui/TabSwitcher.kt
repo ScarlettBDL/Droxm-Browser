@@ -22,6 +22,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -79,6 +88,10 @@ fun TabSwitcher(
     var incognitoMode by remember { mutableStateOf(manager.activeTab?.incognito == true) }
     var tabMenu by remember { mutableStateOf<BrowserTab?>(null) }
     var renaming by remember { mutableStateOf<TabGroup?>(null) }
+    var openGroupId by remember { mutableStateOf<Long?>(null) }
+
+    // La foto de la pestaña que se estaba viendo se saca al abrir el selector.
+    LaunchedEffect(Unit) { manager.activeTab?.let { manager.captureThumbnail(it) } }
 
     val normalCount = manager.tabs.count { !it.incognito }
     val incognitoCount = manager.tabs.count { it.incognito }
@@ -86,61 +99,83 @@ fun TabSwitcher(
     val groups = manager.groups.filter { it.incognito == incognitoMode }
     val ungrouped = shown.filter { tab -> groups.none { it.id == tab.groupId } }
 
+    // Si el grupo abierto se quedó sin pestañas, desaparece y se vuelve a la vista general.
+    val openGroup = openGroupId?.let { id -> manager.groups.firstOrNull { it.id == id } }
+    BackHandler(enabled = openGroup != null) { openGroupId = null }
+
+    fun select(tab: BrowserTab) {
+        manager.select(tab.id)
+        onClose()
+    }
+
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FilterChip(
-                    selected = !incognitoMode,
-                    onClick = { incognitoMode = false },
-                    label = { Text("Pestañas ($normalCount)") },
-                )
-                FilterChip(
-                    selected = incognitoMode,
-                    onClick = { incognitoMode = true },
-                    label = { Text("Incógnito ($incognitoCount)") },
-                )
-                Spacer(Modifier.weight(1f))
-                TextButton(
-                    enabled = shown.isNotEmpty(),
-                    onClick = {
-                        manager.closeAll(incognitoMode)
-                        onClose()
-                    },
+        if (openGroup != null) {
+            val members = manager.tabs.filter { it.groupId == openGroup.id }
+            GroupView(
+                manager = manager,
+                group = openGroup,
+                members = members,
+                onBack = { openGroupId = null },
+                onSelect = ::select,
+                onMenu = { tabMenu = it },
+                onRename = { renaming = openGroup },
+                onNewTab = {
+                    manager.newTab(incognito = openGroup.incognito, groupId = openGroup.id)
+                    onClose()
+                },
+                onCloseGroup = {
+                    manager.closeGroup(openGroup.id)
+                    openGroupId = null
+                    if (manager.tabs.none { it.incognito == incognitoMode }) onClose()
+                },
+            )
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Cerrar todas")
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                    FilterChip(
+                        selected = !incognitoMode,
+                        onClick = { incognitoMode = false },
+                        label = { Text("Pestañas ($normalCount)") },
+                    )
+                    FilterChip(
+                        selected = incognitoMode,
+                        onClick = { incognitoMode = true },
+                        label = { Text("Incógnito ($incognitoCount)") },
+                    )
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        enabled = shown.isNotEmpty(),
+                        onClick = {
+                            manager.closeAll(incognitoMode)
+                            onClose()
+                        },
+                    ) {
+                        Text("Cerrar todas")
+                    }
                 }
-            }
 
-            if (shown.isNotEmpty()) {
-                Text(
-                    text = "Mantené apretada una pestaña para agruparla o moverla de grupo.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f),
-            ) {
-                groups.forEach { group ->
-                    val members = shown.filter { it.groupId == group.id }
-
-                    item(key = "g${group.id}", span = { GridItemSpan(maxLineSpan) }) {
-                        GroupHeader(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    items(groups, key = { "g${it.id}" }) { group ->
+                        val members = shown.filter { it.groupId == group.id }
+                        GroupCard(
                             group = group,
-                            count = members.size,
-                            onToggle = { manager.toggleCollapsed(group) },
+                            members = members,
+                            onOpen = { openGroupId = group.id },
                             onRename = { renaming = group },
                             onColor = { manager.nextColor(group) },
                             onUngroup = { manager.ungroup(group.id) },
@@ -150,51 +185,38 @@ fun TabSwitcher(
                             },
                         )
                     }
-
-                    if (!group.collapsed) {
-                        items(members, key = { "t${it.id}" }) { tab ->
-                            TabCard(
-                                tab = tab,
-                                stripe = groupColor(group),
-                                active = tab.id == manager.activeId,
-                                onSelect = {
-                                    manager.select(tab.id)
-                                    onClose()
-                                },
-                                onMenu = { tabMenu = tab },
-                                onClose = { manager.close(tab.id) },
-                            )
-                        }
+                    items(ungrouped, key = { "t${it.id}" }) { tab ->
+                        TabCard(
+                            tab = tab,
+                            active = tab.id == manager.activeId,
+                            onSelect = { select(tab) },
+                            onMenu = { tabMenu = tab },
+                            onClose = { manager.close(tab.id) },
+                        )
                     }
                 }
 
-                items(ungrouped, key = { "t${it.id}" }) { tab ->
-                    TabCard(
-                        tab = tab,
-                        stripe = null,
-                        active = tab.id == manager.activeId,
-                        onSelect = {
-                            manager.select(tab.id)
-                            onClose()
-                        },
-                        onMenu = { tabMenu = tab },
-                        onClose = { manager.close(tab.id) },
+                if (shown.isNotEmpty()) {
+                    Text(
+                        text = "Mantené apretada una pestaña para agruparla.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
-            }
-
-            Button(
-                onClick = {
-                    manager.newTab(incognito = incognitoMode)
-                    onClose()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (incognitoMode) "Nueva pestaña incógnito" else "Nueva pestaña")
+                Button(
+                    onClick = {
+                        manager.newTab(incognito = incognitoMode)
+                        onClose()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (incognitoMode) "Nueva pestaña incógnito" else "Nueva pestaña")
+                }
             }
         }
     }
@@ -219,63 +241,174 @@ fun TabSwitcher(
     }
 }
 
+private fun tabTitle(tab: BrowserTab): String =
+    tab.title.ifBlank { if (tab.isHome) "Nueva pestaña" else UrlUtils.displayHost(tab.url) }
+
+/** Miniatura de la pestaña; si no hay, un recuadro de color con la inicial del sitio. */
+@Composable
+private fun TabPreview(tab: BrowserTab, modifier: Modifier = Modifier) {
+    val thumb = tab.thumbnail
+    if (thumb != null && !tab.isHome) {
+        Image(
+            bitmap = thumb,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter,
+            modifier = modifier,
+        )
+    } else {
+        val host = if (tab.isHome) "droxm" else UrlUtils.displayHost(tab.url).ifBlank { "?" }
+        val hue = (abs(host.hashCode()) % 360).toFloat()
+        Box(
+            modifier = modifier.background(Color.hsv(hue, 0.35f, 0.45f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = host.first().uppercase(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 28.sp,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TabCard(
     tab: BrowserTab,
-    stripe: Color?,
     active: Boolean,
     onSelect: () -> Unit,
     onMenu: () -> Unit,
     onClose: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val title = tab.title.ifBlank {
-        if (tab.isHome) "Nueva pestaña" else UrlUtils.displayHost(tab.url)
-    }
 
     Card(
+        shape = MaterialTheme.shapes.large,
         border = if (active) BorderStroke(2.dp, colors.primary) else null,
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
-            .clip(MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.large)
             .combinedClickable(onClick = onSelect, onLongClick = onMenu),
     ) {
-        Row(Modifier.fillMaxSize()) {
-            // Franja del color del grupo al que pertenece la pestaña.
-            if (stripe != null) {
+        Column {
+            TabPreview(
+                tab = tab,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.15f),
+            )
+            Row(
+                modifier = Modifier.padding(start = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = tabTitle(tab),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onClose, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Cerrar pestaña",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Un grupo se ve como una sola tarjeta con un resumen de sus pestañas; al tocarla se abre. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GroupCard(
+    group: TabGroup,
+    members: List<BrowserTab>,
+    onOpen: () -> Unit,
+    onRename: () -> Unit,
+    onColor: () -> Unit,
+    onUngroup: () -> Unit,
+    onCloseGroup: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val color = groupColor(group)
+
+    Card(
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(2.dp, color),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
+    ) {
+        Column {
+            // Mosaico de 2x2 con las primeras pestañas del grupo.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.15f)
+                    .padding(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (row in 0..1) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        for (col in 0..1) {
+                            val tab = members.getOrNull(row * 2 + col)
+                            val cell = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(MaterialTheme.shapes.small)
+                            if (tab != null) {
+                                TabPreview(tab, cell)
+                            } else {
+                                Box(cell.background(MaterialTheme.colorScheme.surfaceVariant))
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.padding(start = 10.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(
                     Modifier
-                        .width(6.dp)
-                        .fillMaxHeight()
-                        .background(stripe),
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(color),
                 )
-            }
-            Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${group.name} (${members.size})",
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(40.dp)) {
                         Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Cerrar pestaña",
+                            Icons.Default.MoreVert,
+                            contentDescription = "Opciones del grupo",
                             modifier = Modifier.size(18.dp),
                         )
                     }
-                }
-                if (!tab.isHome) {
-                    Text(
-                        text = UrlUtils.displayHost(tab.url),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    GroupMenu(
+                        expanded = menuOpen,
+                        onDismiss = { menuOpen = false },
+                        onRename = onRename,
+                        onColor = onColor,
+                        onUngroup = onUngroup,
+                        onCloseGroup = onCloseGroup,
                     )
                 }
             }
@@ -284,78 +417,118 @@ private fun TabCard(
 }
 
 @Composable
-private fun GroupHeader(
-    group: TabGroup,
-    count: Int,
-    onToggle: () -> Unit,
+private fun GroupMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
     onRename: () -> Unit,
     onColor: () -> Unit,
     onUngroup: () -> Unit,
     onCloseGroup: () -> Unit,
 ) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf(
+            "Cambiar nombre" to onRename,
+            "Cambiar color" to onColor,
+            "Desagrupar" to onUngroup,
+            "Cerrar grupo" to onCloseGroup,
+        ).forEach { (label, action) ->
+            DropdownMenuItem(
+                text = { Text(label) },
+                onClick = {
+                    onDismiss()
+                    action()
+                },
+            )
+        }
+    }
+}
+
+/** Contenido de un grupo: todas sus pestañas en una cuadrícula, con su propio encabezado. */
+@Composable
+private fun GroupView(
+    manager: TabManager,
+    group: TabGroup,
+    members: List<BrowserTab>,
+    onBack: () -> Unit,
+    onSelect: (BrowserTab) -> Unit,
+    onMenu: (BrowserTab) -> Unit,
+    onRename: () -> Unit,
+    onNewTab: () -> Unit,
+    onCloseGroup: () -> Unit,
+) {
     var menuOpen by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onToggle)
-            .padding(start = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(groupColor(group)),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "${group.name} ($count)",
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+            }
+            Box(
+                Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(groupColor(group)),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "${group.name} (${members.size})",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onRename),
+            )
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Opciones del grupo")
+                }
+                GroupMenu(
+                    expanded = menuOpen,
+                    onDismiss = { menuOpen = false },
+                    onRename = onRename,
+                    onColor = { manager.nextColor(group) },
+                    onUngroup = {
+                        manager.ungroup(group.id)
+                        onBack()
+                    },
+                    onCloseGroup = onCloseGroup,
+                )
+            }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = if (group.collapsed) "▸" else "▾",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Opciones del grupo")
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Cambiar nombre") },
-                    onClick = {
-                        menuOpen = false
-                        onRename()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Cambiar color") },
-                    onClick = {
-                        menuOpen = false
-                        onColor()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Desagrupar") },
-                    onClick = {
-                        menuOpen = false
-                        onUngroup()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Cerrar grupo") },
-                    onClick = {
-                        menuOpen = false
-                        onCloseGroup()
-                    },
+        ) {
+            items(members, key = { "t${it.id}" }) { tab ->
+                TabCard(
+                    tab = tab,
+                    active = tab.id == manager.activeId,
+                    onSelect = { onSelect(tab) },
+                    onMenu = { onMenu(tab) },
+                    onClose = { manager.close(tab.id) },
                 )
             }
+        }
+
+        Button(
+            onClick = onNewTab,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Nueva pestaña en el grupo")
         }
     }
 }

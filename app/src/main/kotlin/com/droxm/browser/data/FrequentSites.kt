@@ -62,7 +62,7 @@ class FrequentSites(context: Context) {
     private fun replaceAll(list: List<Site>) {
         val sorted = list
             .sortedWith(compareByDescending<Site> { it.count }.thenByDescending { it.last })
-            .take(MAX_SITES)
+            .take(Limits.MAX_SITES)
         sites.clear()
         sites.addAll(sorted)
         save()
@@ -70,7 +70,7 @@ class FrequentSites(context: Context) {
 
     // Las búsquedas (duckduckgo.com/?q=...) no son "un sitio que visitás", no se cuentan.
     private fun isSearchResults(host: String, uri: Uri): Boolean =
-        host in SEARCH_HOSTS && uri.getQueryParameter("q") != null
+        host in Limits.SEARCH_HOSTS && uri.getQueryParameter("q") != null
 
     private fun save() {
         val array = JSONArray()
@@ -96,7 +96,12 @@ class FrequentSites(context: Context) {
         }
     }
 
-    private companion object {
+    companion object {
+        /** Visitas mínimas para que un sitio cuente como "frecuente" y aparezca en el inicio. */
+        const val MIN_VISITS = 3
+    }
+
+    private object Limits {
         const val MAX_SITES = 100
         val SEARCH_HOSTS = setOf("duckduckgo.com", "google.com", "bing.com", "search.brave.com")
     }

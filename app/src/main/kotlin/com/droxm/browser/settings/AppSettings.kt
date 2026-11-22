@@ -11,6 +11,12 @@ enum class BarPosition(val label: String) {
     BOTTOM("Abajo"),
 }
 
+enum class SitesPosition(val label: String) {
+    TOP("Arriba"),
+    CENTER("Centro"),
+    BOTTOM("Abajo"),
+}
+
 enum class BarSize(val label: String, val dp: Int) {
     COMPACT("Compacta", 34),
     NORMAL("Normal", 40),
@@ -77,6 +83,13 @@ class AppSettings(context: Context) {
     var adBlock by mutableStateOf(prefs.getBoolean("ad_block", true))
         private set
 
+    /** Cuántos sitios frecuentes se muestran en el inicio. */
+    var homeSiteCount by mutableStateOf(prefs.getInt("home_site_count", 8).coerceIn(1, 12))
+        private set
+
+    var homeSitesPosition by mutableStateOf(loadEnum("home_sites_position", SitesPosition.CENTER))
+        private set
+
     init {
         AdBlocker.enabled = adBlock
     }
@@ -95,6 +108,16 @@ class AppSettings(context: Context) {
     fun updateShowHomeTitle(value: Boolean) {
         showHomeTitle = value
         prefs.edit().putBoolean("show_home_title", value).apply()
+    }
+
+    fun updateHomeSiteCount(value: Int) {
+        homeSiteCount = value.coerceIn(1, 12)
+        prefs.edit().putInt("home_site_count", homeSiteCount).apply()
+    }
+
+    fun updateHomeSitesPosition(value: SitesPosition) {
+        homeSitesPosition = value
+        prefs.edit().putString("home_sites_position", value.name).apply()
     }
 
     fun updateShowFrequentSites(value: Boolean) {

@@ -1,5 +1,7 @@
 package com.droxm.browser.tabs
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -7,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.DownloadRequest
@@ -48,6 +51,10 @@ class TabManager(
 
     val incognitoIsolated: Boolean
         get() = engine.incognitoIsolated
+
+    private companion object {
+        const val THUMB_WIDTH = 240
+    }
 
     private var nextId = 1L
     private var nextGroupId = 1L
@@ -99,7 +106,10 @@ class TabManager(
     fun select(id: Long) {
         val tab = tabs.firstOrNull { it.id == id } ?: return
         val previous = activeTab
-        if (previous != null && previous !== tab) previous.session?.onPause()
+        if (previous != null && previous !== tab) {
+            captureThumbnail(previous)
+            previous.session?.onPause()
+        }
 
         activeId = id
         if (!tab.incognito) lastNormalId = id
@@ -265,6 +275,7 @@ class TabManager(
     // ---------------------------------------------------------------- ciclo de vida
 
     fun onHostPause() {
+        activeTab?.let { captureThumbnail(it) }
         activeTab?.session?.onPause()
         persist()
     }
@@ -311,7 +322,25 @@ class TabManager(
         others.drop(keep).forEach { discard(it) }
     }
 
+    /** Saca una foto chica de la página para mostrarla en el selector de pestañas. */
+    fun captureThumbnail(tab: BrowserTab) {
+        val view = tab.session?.view ?: return
+        if (view.width <= 0 || view.height <= 0) return
+        try {
+            val scale = THUMB_WIDTH / view.width.toFloat()
+            val height = (view.height * scale).toInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(THUMB_WIDTH, height, Bitmap.Config.RGB_565)
+            val canvas = Canvas(bitmap)
+            canvas.scale(scale, scale)
+            view.draw(canvas)
+            tab.thumbnail = bitmap.asImageBitmap()
+        } catch (e: Throwable) {
+            // Sin miniatura: el selector muestra la inicial del sitio.
+        }
+    }
+
     private fun discard(tab: BrowserTab) {
+        captureThumbnail(tab)
         val session = tab.session ?: return
         tab.savedState = session.saveState()
         session.release()
