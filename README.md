@@ -82,8 +82,12 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 
 ### Pantalla de inicio
 
-- **Tu propio fondo:** una foto, un GIF/WebP animado o un video corto en loop y sin
-  sonido. Se recorta solo para llenar la pantalla.
+- **Fondo de naturaleza por defecto:** fotos de paisajes de Wikimedia Commons (imágenes
+  destacadas, con licencia libre) que se descargan solas con Wi-Fi y cambian cada vez que
+  abrís el navegador. Si no hay conexión, se ve un degradado.
+- **Tus propios fondos:** en Ajustes subís varias fotos, GIF/WebP animados o videos cortos
+  (en loop y sin sonido), fijás uno o activás **"Rotar mis fondos"** para que se elija uno al
+  azar cada vez que abrís el navegador, y quitás los que no quieras.
 - **Control de oscuridad** para que el texto se lea bien sobre fondos claros.
 - **Sitios más visitados** en una grilla; un sitio aparece recién después de **3 visitas**.
   Elegís cuántos mostrar (3, 4, 6, 8 o 12) y dónde: arriba, al centro o abajo. Mantené
@@ -181,7 +185,7 @@ perder los ajustes.
 | Posición de la barra | Arriba / Abajo | Abajo |
 | Tamaño de la barra | Compacta / Normal / Grande | Normal |
 | Botones atrás y adelante | Mostrar / Ocultar | Mostrar |
-| Fondo de inicio | Foto, GIF o video (máx. 150 MB) | Degradado |
+| Fondo de inicio | Naturaleza / Mis fondos (fotos, GIF, videos de hasta 150 MB, con rotación) / Degradado | Naturaleza |
 | Oscuridad del fondo | 0–90 % | 35 % |
 | Mostrar título "Droxm" | Sí / No | Sí |
 | Sitios más visitados | Sí / No | Sí |
@@ -253,6 +257,8 @@ La interfaz está pensada en español y todavía no tiene otros idiomas.
 - WebView no soporta notificaciones web ni push: las páginas que las piden no las reciben.
 - Guardar y rellenar contraseñas depende del servicio de autocompletar que tengas activado
   en Android; Droxm no tiene gestor propio.
+- Las fotos de naturaleza dependen de la API pública de Wikimedia Commons; si cambia o no hay
+  conexión, el inicio queda con el degradado.
 - El bloqueador solo filtra pedidos de red: no soporta reglas con expresiones regulares ni
   `$redirect`/`$csp`, y los selectores de ocultamiento (`##`) de EasyList no se aplican
   (solo un ocultamiento básico de anuncios de Google). El tipo de recurso se deduce de las

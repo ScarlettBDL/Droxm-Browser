@@ -10,6 +10,7 @@ import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.engine.WebViewEngine
 import com.droxm.browser.data.Bookmarks
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.History
 import com.droxm.browser.data.SitePermissions
 import com.droxm.browser.settings.AppSettings
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var frequentSites: FrequentSites
     private lateinit var history: History
     private lateinit var bookmarks: Bookmarks
+    private lateinit var backgrounds: HomeBackgrounds
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +39,8 @@ class MainActivity : ComponentActivity() {
         frequentSites = FrequentSites(this)
         history = History(this)
         bookmarks = Bookmarks(this)
+        // Se elige el fondo de inicio de esta apertura del navegador.
+        backgrounds = HomeBackgrounds(this)
         // Tiene que crearse acá (antes de que la actividad arranque) porque registra el pedido de permiso de descargas.
         val downloader = Downloader(this)
         val bridge = SystemBridge(this)
@@ -57,7 +61,7 @@ class MainActivity : ComponentActivity() {
                 amoled = settings.amoled,
                 forceDark = manager.activeTab?.incognito == true,
             ) {
-                BrowserScreen(manager, settings, frequentSites, history, bookmarks)
+                BrowserScreen(manager, settings, frequentSites, history, bookmarks, backgrounds)
             }
         }
     }

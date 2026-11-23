@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.droxm.browser.data.Bookmarks
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.History
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
@@ -83,6 +84,7 @@ fun BrowserScreen(
     frequentSites: FrequentSites,
     history: History,
     bookmarks: Bookmarks,
+    backgrounds: HomeBackgrounds,
     modifier: Modifier = Modifier,
 ) {
     val tab = manager.activeTab
@@ -165,6 +167,7 @@ fun BrowserScreen(
                         settings = settings,
                         frequentSites = frequentSites,
                         bookmarks = bookmarks,
+                        backgrounds = backgrounds,
                         onOpenSite = { url -> manager.navigate(tab, url) },
                     )
                     // Se ignora lo escrito si es la URL actual entera (es lo que aparece seleccionado al tocar la barra).
@@ -214,6 +217,7 @@ fun BrowserScreen(
                 settings = settings,
                 frequentSites = frequentSites,
                 sitePermissions = manager.sitePermissions,
+                backgrounds = backgrounds,
                 onClose = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -244,6 +248,7 @@ private fun PageContent(
     settings: AppSettings,
     frequentSites: FrequentSites,
     bookmarks: Bookmarks,
+    backgrounds: HomeBackgrounds,
     onOpenSite: (String) -> Unit,
 ) {
     if (tab.isHome) {
@@ -253,6 +258,7 @@ private fun PageContent(
             settings = settings,
             frequentSites = frequentSites,
             bookmarks = bookmarks,
+            backgrounds = backgrounds,
             onOpenSite = onOpenSite,
             modifier = Modifier.fillMaxSize(),
         )

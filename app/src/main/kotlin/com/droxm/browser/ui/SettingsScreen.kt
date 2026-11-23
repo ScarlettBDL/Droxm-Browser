@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import android.content.Intent
 import android.provider.Settings
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.SitePermissions
 import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.settings.AppSettings
@@ -74,6 +75,7 @@ fun SettingsScreen(
     settings: AppSettings,
     frequentSites: FrequentSites,
     sitePermissions: SitePermissions,
+    backgrounds: HomeBackgrounds,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -168,7 +170,7 @@ fun SettingsScreen(
 
                 SectionTitle("Pantalla de inicio")
 
-                HomeBackgroundSetting(settings)
+                BackgroundsSettings(backgrounds)
 
                 DarknessSetting(settings)
 
@@ -358,71 +360,6 @@ fun SettingsScreen(
                 )
 
                 Spacer(Modifier.height(24.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeBackgroundSetting(settings: AppSettings) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var importing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            importing = true
-            error = null
-            val result = withContext(Dispatchers.IO) { BackgroundFiles.import(context, uri) }
-            if (result.fileName != null) {
-                val old = settings.homeBgFile
-                settings.updateHomeBackground(result.fileName, result.isVideo)
-                withContext(Dispatchers.IO) { BackgroundFiles.delete(context, old) }
-            } else {
-                error = result.error
-            }
-            importing = false
-        }
-    }
-
-    val current = when {
-        settings.homeBgFile == null -> "Sin fondo (se usa un degradado)"
-        settings.homeBgIsVideo -> "Fondo actual: video"
-        else -> "Fondo actual: foto o animación"
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Fondo", style = MaterialTheme.typography.bodyLarge)
-        Text(
-            text = "Foto, GIF animado o video (hasta 150 MB). Un video corto y liviano gasta menos batería.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = if (importing) "Importando..." else current,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        error?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                enabled = !importing,
-                onClick = { picker.launch(arrayOf("image/*", "video/*")) },
-            ) {
-                Text("Elegir archivo")
-            }
-            OutlinedButton(
-                enabled = !importing && settings.homeBgFile != null,
-                onClick = {
-                    val old = settings.homeBgFile
-                    settings.updateHomeBackground(null, false)
-                    scope.launch { withContext(Dispatchers.IO) { BackgroundFiles.delete(context, old) } }
-                },
-            ) {
-                Text("Quitar fondo")
             }
         }
     }

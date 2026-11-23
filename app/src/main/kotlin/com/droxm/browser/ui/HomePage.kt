@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droxm.browser.data.Bookmarks
+import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.settings.HomeSource
 import com.droxm.browser.util.UrlUtils
@@ -59,13 +60,14 @@ fun HomePage(
     settings: AppSettings,
     frequentSites: FrequentSites,
     bookmarks: Bookmarks,
+    backgrounds: HomeBackgrounds,
     onOpenSite: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (incognito) {
         IncognitoHome(incognitoIsolated, modifier)
     } else {
-        NormalHome(settings, frequentSites, bookmarks, onOpenSite, modifier)
+        NormalHome(settings, frequentSites, bookmarks, backgrounds, onOpenSite, modifier)
     }
 }
 
@@ -74,16 +76,15 @@ private fun NormalHome(
     settings: AppSettings,
     frequentSites: FrequentSites,
     bookmarks: Bookmarks,
+    backgrounds: HomeBackgrounds,
     onOpenSite: (String) -> Unit,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
 
-    val bgName = settings.homeBgFile
-    val bgFile = remember(bgName) {
-        bgName?.let { BackgroundFiles.file(context, it) }?.takeIf { it.exists() }
-    }
+    val bg = backgrounds.current
+    val bgFile = remember(bg) { bg?.file?.takeIf { it.exists() } }
     val hasBackground = bgFile != null
     val textColor = if (hasBackground) Color.White else colors.onBackground
     val softTextColor = if (hasBackground) Color.White.copy(alpha = 0.8f) else colors.onSurfaceVariant
@@ -95,7 +96,7 @@ private fun NormalHome(
         ),
     ) {
         if (bgFile != null) {
-            if (settings.homeBgIsVideo) {
+            if (bg?.isVideo == true) {
                 VideoBackdrop(bgFile, Modifier.fillMaxSize())
             } else {
                 ImageBackdrop(bgFile, Modifier.fillMaxSize())
