@@ -82,6 +82,7 @@ private fun groupColor(group: TabGroup): Color = GroupColors[group.colorIndex.mo
 @Composable
 fun TabSwitcher(
     manager: TabManager,
+    columns: Int,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -113,6 +114,7 @@ fun TabSwitcher(
             val members = manager.tabs.filter { it.groupId == openGroup.id }
             GroupView(
                 manager = manager,
+                columns = columns,
                 group = openGroup,
                 members = members,
                 onBack = { openGroupId = null },
@@ -164,7 +166,7 @@ fun TabSwitcher(
                 }
 
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Fixed(columns),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -447,6 +449,7 @@ private fun GroupMenu(
 @Composable
 private fun GroupView(
     manager: TabManager,
+    columns: Int,
     group: TabGroup,
     members: List<BrowserTab>,
     onBack: () -> Unit,
@@ -503,7 +506,7 @@ private fun GroupView(
         }
 
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(columns),
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

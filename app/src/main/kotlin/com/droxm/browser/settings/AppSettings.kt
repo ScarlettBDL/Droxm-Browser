@@ -34,6 +34,32 @@ enum class SearchEngine(val label: String, val url: String) {
     GOOGLE("Google", "https://www.google.com/search?q="),
     BING("Bing", "https://www.bing.com/search?q="),
     BRAVE("Brave", "https://search.brave.com/search?q="),
+    CUSTOM("Personalizado", ""),
+}
+
+/** Color principal de la app. DYNAMIC toma los colores del fondo de pantalla (Android 12+). */
+enum class AccentColor(val label: String, val argb: Long) {
+    DYNAMIC("Dinámico", 0),
+    VIOLET("Violeta", 0xFF6C4DFF),
+    BLUE("Azul", 0xFF1E6FFF),
+    TEAL("Turquesa", 0xFF00A3A3),
+    GREEN("Verde", 0xFF1F9D55),
+    ORANGE("Naranja", 0xFFF08A24),
+    RED("Rojo", 0xFFE5484D),
+    PINK("Rosa", 0xFFD6409F),
+}
+
+/** Qué tan redondeada es la barra de direcciones. */
+enum class BarShape(val label: String, val dp: Int) {
+    PILL("Píldora", 24),
+    ROUNDED("Redondeada", 12),
+    SQUARE("Recta", 4),
+}
+
+/** Qué accesos se muestran en la pantalla de inicio. */
+enum class HomeSource(val label: String) {
+    FREQUENT("Más visitados"),
+    BOOKMARKS("Favoritos"),
 }
 
 /**
@@ -82,6 +108,60 @@ class AppSettings(context: Context) {
 
     var adBlock by mutableStateOf(prefs.getBoolean("ad_block", true))
         private set
+
+    var accent by mutableStateOf(loadEnum("accent", AccentColor.DYNAMIC))
+        private set
+
+    /** Tema oscuro con negro puro (ahorra batería en pantallas OLED). */
+    var amoled by mutableStateOf(prefs.getBoolean("amoled", false))
+        private set
+
+    var barShape by mutableStateOf(loadEnum("bar_shape", BarShape.PILL))
+        private set
+
+    var showHomeButton by mutableStateOf(prefs.getBoolean("show_home_button", false))
+        private set
+
+    var showNewTabButton by mutableStateOf(prefs.getBoolean("show_new_tab_button", false))
+        private set
+
+    var showReloadButton by mutableStateOf(prefs.getBoolean("show_reload_button", true))
+        private set
+
+    /** Zoom del texto de las páginas, en porcentaje. */
+    var textZoom by mutableStateOf(prefs.getInt("text_zoom", 100).coerceIn(50, 300))
+        private set
+
+    var hideBarOnScroll by mutableStateOf(prefs.getBoolean("hide_bar_on_scroll", false))
+        private set
+
+    /** Deslizar la barra de izquierda a derecha cambia de pestaña. */
+    var swipeTabs by mutableStateOf(prefs.getBoolean("swipe_tabs", false))
+        private set
+
+    var homeSource by mutableStateOf(loadEnum("home_source", HomeSource.FREQUENT))
+        private set
+
+    var showHomeClock by mutableStateOf(prefs.getBoolean("show_home_clock", false))
+        private set
+
+    /** Columnas del selector de pestañas. */
+    var tabColumns by mutableStateOf(prefs.getInt("tab_columns", 2).coerceIn(1, 3))
+        private set
+
+    /** Dirección de búsqueda propia; `%s` marca dónde va lo que se busca (si falta, se agrega al final). */
+    var customSearchUrl by mutableStateOf(prefs.getString("custom_search_url", "") ?: "")
+        private set
+
+    /** Dirección de búsqueda efectiva según el buscador elegido. */
+    val searchUrl: String
+        get() = if (searchEngine == SearchEngine.CUSTOM && customSearchUrl.isNotBlank()) {
+            customSearchUrl.trim()
+        } else if (searchEngine == SearchEngine.CUSTOM) {
+            SearchEngine.DUCKDUCKGO.url
+        } else {
+            searchEngine.url
+        }
 
     /** Cuántos sitios frecuentes se muestran en el inicio. */
     var homeSiteCount by mutableStateOf(prefs.getInt("home_site_count", 8).coerceIn(1, 12))
@@ -159,6 +239,71 @@ class AppSettings(context: Context) {
     fun updateMaxLiveTabs(value: Int) {
         maxLiveTabs = value.coerceIn(1, 6)
         prefs.edit().putInt("max_live_tabs", maxLiveTabs).apply()
+    }
+
+    fun updateAccent(value: AccentColor) {
+        accent = value
+        prefs.edit().putString("accent", value.name).apply()
+    }
+
+    fun updateAmoled(value: Boolean) {
+        amoled = value
+        prefs.edit().putBoolean("amoled", value).apply()
+    }
+
+    fun updateBarShape(value: BarShape) {
+        barShape = value
+        prefs.edit().putString("bar_shape", value.name).apply()
+    }
+
+    fun updateShowHomeButton(value: Boolean) {
+        showHomeButton = value
+        prefs.edit().putBoolean("show_home_button", value).apply()
+    }
+
+    fun updateShowNewTabButton(value: Boolean) {
+        showNewTabButton = value
+        prefs.edit().putBoolean("show_new_tab_button", value).apply()
+    }
+
+    fun updateShowReloadButton(value: Boolean) {
+        showReloadButton = value
+        prefs.edit().putBoolean("show_reload_button", value).apply()
+    }
+
+    fun updateTextZoom(value: Int) {
+        textZoom = value.coerceIn(50, 300)
+        prefs.edit().putInt("text_zoom", textZoom).apply()
+    }
+
+    fun updateHideBarOnScroll(value: Boolean) {
+        hideBarOnScroll = value
+        prefs.edit().putBoolean("hide_bar_on_scroll", value).apply()
+    }
+
+    fun updateSwipeTabs(value: Boolean) {
+        swipeTabs = value
+        prefs.edit().putBoolean("swipe_tabs", value).apply()
+    }
+
+    fun updateHomeSource(value: HomeSource) {
+        homeSource = value
+        prefs.edit().putString("home_source", value.name).apply()
+    }
+
+    fun updateShowHomeClock(value: Boolean) {
+        showHomeClock = value
+        prefs.edit().putBoolean("show_home_clock", value).apply()
+    }
+
+    fun updateTabColumns(value: Int) {
+        tabColumns = value.coerceIn(1, 3)
+        prefs.edit().putInt("tab_columns", tabColumns).apply()
+    }
+
+    fun updateCustomSearchUrl(value: String) {
+        customSearchUrl = value
+        prefs.edit().putString("custom_search_url", value).apply()
     }
 
     private inline fun <reified E : Enum<E>> loadEnum(key: String, default: E): E {

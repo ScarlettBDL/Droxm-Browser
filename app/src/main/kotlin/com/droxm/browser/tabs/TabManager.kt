@@ -72,6 +72,12 @@ class TabManager(
     var fullscreen by mutableStateOf<Fullscreen?>(null)
         private set
 
+    /** La barra está escondida porque se está deslizando hacia abajo (solo si el ajuste está activado). */
+    var barHidden by mutableStateOf(false)
+        private set
+
+    private var scrollAccum = 0
+
     /** PDF que se está viendo en el visor propio. */
     var pdf by mutableStateOf<DownloadRequest?>(null)
         private set
@@ -143,6 +149,8 @@ class TabManager(
         }
 
         activeId = id
+        barHidden = false
+        scrollAccum = 0
         if (!tab.incognito) lastNormalId = id
         tab.lastActive = SystemClock.elapsedRealtime()
         ensureSession(tab)
@@ -153,7 +161,7 @@ class TabManager(
 
     /** Escribió algo en la barra: carga la URL o hace una búsqueda. */
     fun navigate(tab: BrowserTab, input: String) {
-        val url = UrlUtils.resolve(input, settings.searchEngine.url) ?: return
+        val url = UrlUtils.resolve(input, settings.searchUrl) ?: return
         tab.url = url
         tab.title = ""
         val session = tab.session
@@ -216,6 +224,34 @@ class TabManager(
     /** Duerme todas las pestañas menos la activa (se usa cuando el sistema pide memoria). */
     fun discardInactive() {
         tabs.filter { it.session != null && it.id != activeId }.forEach { discard(it) }
+    }
+
+    /** Pasa a la pestaña de al lado (del mismo modo, normal o incógnito). */
+    fun switchTab(delta: Int) {
+        val current = activeTab ?: return
+        val sameMode = tabs.filter { it.incognito == current.incognito }
+        val target = sameMode.getOrNull(sameMode.indexOf(current) + delta) ?: return
+        select(target.id)
+    }
+
+    /** Vuelve la pestaña a la pantalla de inicio (se pierde su historial de navegación). */
+    fun goHome(tab: BrowserTab) {
+        tab.session?.release()
+        tab.session = null
+        tab.savedState = null
+        tab.url = ""
+        tab.title = ""
+        tab.canGoBack = false
+        tab.canGoForward = false
+        tab.isLoading = false
+        tab.progress = 0
+        barHidden = false
+        persist()
+    }
+
+    /** Aplica el tamaño de texto a todas las pestañas vivas. */
+    fun applyTextZoom() {
+        tabs.forEach { it.session?.setTextZoom(settings.textZoom) }
     }
 
     fun exitFullscreen() {
@@ -405,6 +441,7 @@ class TabManager(
             initialUrl = tab.url.ifBlank { null },
         )
         tab.savedState = null
+        tab.session?.setTextZoom(settings.textZoom)
     }
 
     private fun enforceLimit() {
@@ -508,6 +545,25 @@ class TabManager(
 
         override fun onGeolocationRequest(origin: String, respond: (Boolean) -> Unit) {
             askSitePermissions(tab, origin, listOf(SitePerm.LOCATION), respond)
+        }
+
+        override fun onScrollChanged(y: Int, dy: Int) {
+            if (tab.id != activeId || !settings.hideBarOnScroll) return
+            if (y <= 0) {
+                barHidden = false
+                scrollAccum = 0
+                return
+            }
+            // Se acumula el movimiento en una dirección; cambiar de dirección lo reinicia.
+            if ((dy > 0) != (scrollAccum > 0)) scrollAccum = 0
+            scrollAccum += dy
+            if (scrollAccum > 60) {
+                barHidden = true
+                scrollAccum = 0
+            } else if (scrollAccum < -30) {
+                barHidden = false
+                scrollAccum = 0
+            }
         }
 
         override fun onShowFullscreen(view: View, onExit: () -> Unit) {

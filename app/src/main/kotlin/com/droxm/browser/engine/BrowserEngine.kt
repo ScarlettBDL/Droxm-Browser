@@ -39,6 +39,9 @@ interface EngineDelegate {
     /** La página inició la descarga de un archivo. */
     fun onDownload(request: DownloadRequest)
 
+    /** La página se desplazó: [y] es la posición actual y [dy] cuánto cambió (positivo = hacia abajo). */
+    fun onScrollChanged(y: Int, dy: Int)
+
     /** La página pide la cámara y/o el micrófono. [respond] se llama una sola vez con la decisión. */
     fun onPermissionRequest(origin: String, camera: Boolean, microphone: Boolean, respond: (Boolean) -> Unit)
 
@@ -66,6 +69,9 @@ interface EngineSession {
     fun onPause()
     fun onResume()
     fun release()
+
+    /** Tamaño del texto de las páginas, en porcentaje (100 = normal). */
+    fun setTextZoom(percent: Int)
 
     /** Pide la versión de escritorio (o vuelve a la móvil) y recarga la página. */
     fun setDesktopMode(enabled: Boolean)

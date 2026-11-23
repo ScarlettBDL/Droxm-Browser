@@ -18,7 +18,8 @@ object UrlUtils {
             val local = host.equals("localhost", true) || IPV4.matches(host)
             return (if (local) "http://" else "https://") + text
         }
-        return searchUrl + URLEncoder.encode(text, "UTF-8")
+        val query = URLEncoder.encode(text, "UTF-8")
+        return if (searchUrl.contains("%s")) searchUrl.replace("%s", query) else searchUrl + query
     }
 
     /** Lo que se muestra en la barra cuando no se está editando: solo el dominio. */

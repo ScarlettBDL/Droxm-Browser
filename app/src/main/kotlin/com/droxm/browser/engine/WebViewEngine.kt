@@ -318,6 +318,11 @@ private class WebViewSession(
         // Mantener apretado un enlace o una imagen abre el menú contextual.
         webView.setOnLongClickListener { handleLongPress() }
 
+        // Para esconder la barra al deslizar.
+        webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+            delegate.onScrollChanged(scrollY, scrollY - oldScrollY)
+        }
+
         // Resultados de "buscar en la página".
         webView.setFindListener { ordinal, count, _ -> onFindResult?.invoke(ordinal, count) }
     }
@@ -364,6 +369,10 @@ private class WebViewSession(
     /** Cambia solo el user-agent (sin recargar). */
     fun applyDesktopUserAgent(enabled: Boolean) {
         webView.settings.userAgentString = if (enabled) DESKTOP_USER_AGENT else mobileUserAgent
+    }
+
+    override fun setTextZoom(percent: Int) {
+        webView.settings.textZoom = percent
     }
 
     override var onFindResult: ((Int, Int) -> Unit)? = null

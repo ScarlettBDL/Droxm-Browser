@@ -92,11 +92,19 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 
 ### Personalización
 
-- Barra de direcciones **arriba o abajo** y en tres tamaños.
-- Mostrar u ocultar los botones de atrás/adelante.
-- Tema **claro, oscuro o automático**. En Android 12+ toma los colores de tu fondo de
-  pantalla (Material You).
-- Cuatro buscadores: **DuckDuckGo** (por defecto), Google, Bing y Brave.
+- Barra de direcciones **arriba o abajo**, en tres tamaños y con tres formas (píldora,
+  redondeada, recta).
+- Elegís qué botones lleva: atrás/adelante, inicio, nueva pestaña (+) y recargar.
+- **Esconder la barra al bajar** por la página y **deslizar la barra para cambiar de pestaña**.
+- Tema **claro, oscuro o automático**, con **negro puro (AMOLED)** opcional.
+- **Color principal** a elección (violeta, azul, turquesa, verde, naranja, rojo, rosa) o
+  *dinámico*: en Android 12+ toma los colores de tu fondo de pantalla (Material You).
+- **Tamaño del texto** de las páginas (80 % a 200 %).
+- Selector de pestañas en 1, 2 o 3 columnas.
+- Inicio con **hora y fecha** opcionales, y accesos a tus **sitios más visitados o a tus
+  favoritos**.
+- Buscadores: **DuckDuckGo** (por defecto), Google, Bing, Brave o uno **personalizado**
+  (por ejemplo `https://ejemplo.com/search?q=%s`).
 
 ### Privacidad
 
@@ -180,7 +188,17 @@ perder los ajustes.
 | Cantidad de sitios | 3 / 4 / 6 / 8 / 12 | 8 |
 | Posición de los sitios | Arriba / Centro / Abajo | Centro |
 | Tema | Sistema / Claro / Oscuro | Sistema |
-| Buscador | DuckDuckGo / Google / Bing / Brave | DuckDuckGo |
+| Color principal | Dinámico / 7 colores | Dinámico |
+| Negro puro (AMOLED) | Sí / No | No |
+| Forma de la barra | Píldora / Redondeada / Recta | Píldora |
+| Botones de inicio, nueva pestaña y recargar | Sí / No | No / No / Sí |
+| Esconder la barra al bajar | Sí / No | No |
+| Deslizar la barra cambia de pestaña | Sí / No | No |
+| Columnas del selector de pestañas | 1 / 2 / 3 | 2 |
+| Tamaño del texto de las páginas | 80–200 % | 100 % |
+| Hora y fecha en el inicio | Sí / No | No |
+| Accesos del inicio | Más visitados / Favoritos | Más visitados |
+| Buscador | DuckDuckGo / Google / Bing / Brave / Personalizado | DuckDuckGo |
 | Bloquear anuncios | Sí / No | Sí |
 | Listas de filtros | Actualizar ahora | Automático con Wi-Fi |
 | Pestañas activas a la vez | 1–6 | 3 |

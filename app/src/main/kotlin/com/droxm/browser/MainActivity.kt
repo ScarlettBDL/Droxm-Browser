@@ -53,6 +53,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             DroxmTheme(
                 mode = settings.themeMode,
+                accent = settings.accent,
+                amoled = settings.amoled,
                 forceDark = manager.activeTab?.incognito == true,
             ) {
                 BrowserScreen(manager, settings, frequentSites, history, bookmarks)

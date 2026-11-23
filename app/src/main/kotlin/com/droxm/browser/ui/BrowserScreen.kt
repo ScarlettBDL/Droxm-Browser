@@ -3,7 +3,11 @@ package com.droxm.browser.ui
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +28,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -47,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
@@ -90,6 +97,8 @@ fun BrowserScreen(
     val finding = tab != null && findTabId == tab.id
     // Lo que se está escribiendo en la barra (vacío si no tiene foco): de acá salen las sugerencias.
     var typing by remember { mutableStateOf("") }
+
+    LaunchedEffect(settings.textZoom) { manager.applyTextZoom() }
 
     BackHandler(enabled = manager.fullscreen != null || manager.pdf != null || library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
@@ -138,7 +147,16 @@ fun BrowserScreen(
                 }
 
                 val onTop = settings.barPosition == BarPosition.TOP
-                if (onTop) bar()
+                // Con "ocultar al deslizar", la barra se esconde sola mientras se baja por la página.
+                val barVisible = !(settings.hideBarOnScroll && manager.barHidden) || tab.isHome
+                val animatedBar: @Composable () -> Unit = {
+                    AnimatedVisibility(
+                        visible = barVisible,
+                        enter = expandVertically(),
+                        exit = shrinkVertically(),
+                    ) { bar() }
+                }
+                if (onTop) animatedBar()
                 if (onTop && finding) key(tab.id) { FindBar(tab.session, onClose = { findTabId = null }) }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     PageContent(
@@ -146,6 +164,7 @@ fun BrowserScreen(
                         incognitoIsolated = manager.incognitoIsolated,
                         settings = settings,
                         frequentSites = frequentSites,
+                        bookmarks = bookmarks,
                         onOpenSite = { url -> manager.navigate(tab, url) },
                     )
                     // Se ignora lo escrito si es la URL actual entera (es lo que aparece seleccionado al tocar la barra).
@@ -163,13 +182,14 @@ fun BrowserScreen(
                     }
                 }
                 if (!onTop && finding) key(tab.id) { FindBar(tab.session, onClose = { findTabId = null }) }
-                if (!onTop) bar()
+                if (!onTop) animatedBar()
             }
         }
 
         if (showSwitcher) {
             TabSwitcher(
                 manager = manager,
+                columns = settings.tabColumns,
                 onClose = { showSwitcher = false },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -223,6 +243,7 @@ private fun PageContent(
     incognitoIsolated: Boolean,
     settings: AppSettings,
     frequentSites: FrequentSites,
+    bookmarks: Bookmarks,
     onOpenSite: (String) -> Unit,
 ) {
     if (tab.isHome) {
@@ -231,6 +252,7 @@ private fun PageContent(
             incognitoIsolated = incognitoIsolated,
             settings = settings,
             frequentSites = frequentSites,
+            bookmarks = bookmarks,
             onOpenSite = onOpenSite,
             modifier = Modifier.fillMaxSize(),
         )
@@ -293,7 +315,23 @@ private fun BrowserBar(
     val tabCount = manager.tabs.count { it.incognito == tab.incognito }
     val barHeight = settings.barSize.dp.dp
 
-    Surface(tonalElevation = 3.dp, modifier = modifier.fillMaxWidth()) {
+    Surface(
+        tonalElevation = 3.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(settings.swipeTabs) {
+                if (!settings.swipeTabs) return@pointerInput
+                var total = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragCancel = { total = 0f },
+                    onDragEnd = {
+                        // Deslizar hacia la izquierda va a la pestaña siguiente; hacia la derecha, a la anterior.
+                        if (total < -120f) manager.switchTab(+1) else if (total > 120f) manager.switchTab(-1)
+                    },
+                ) { _, delta -> total += delta }
+            },
+    ) {
         Row(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -320,14 +358,31 @@ private fun BrowserBar(
                 Spacer(Modifier.width(8.dp))
             }
 
+            if (!addressFocused && settings.showHomeButton) {
+                IconButton(onClick = { manager.goHome(tab) }, modifier = Modifier.size(barHeight)) {
+                    Icon(Icons.Default.Home, contentDescription = "Inicio")
+                }
+            }
+
             AddressField(
                 tab = tab,
                 height = barHeight,
+                corner = settings.barShape.dp.dp,
+                showReload = settings.showReloadButton,
                 onSubmit = { manager.navigate(tab, it) },
                 onFocusChange = { addressFocused = it },
                 onTyping = onTyping,
                 modifier = Modifier.weight(1f),
             )
+
+            if (!addressFocused && settings.showNewTabButton) {
+                IconButton(
+                    onClick = { manager.newTab(incognito = tab.incognito) },
+                    modifier = Modifier.size(barHeight),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Nueva pestaña")
+                }
+            }
 
             if (!addressFocused) IconButton(onClick = onShowTabs, modifier = Modifier.size(barHeight)) {
                 val outline = MaterialTheme.colorScheme.onSurface
@@ -457,6 +512,8 @@ private fun BrowserBar(
 private fun AddressField(
     tab: BrowserTab,
     height: Dp,
+    corner: Dp,
+    showReload: Boolean,
     onSubmit: (String) -> Unit,
     onFocusChange: (Boolean) -> Unit,
     onTyping: (String) -> Unit,
@@ -474,7 +531,7 @@ private fun AddressField(
     val shown = if (focused) typed else TextFieldValue(UrlUtils.displayHost(tab.url))
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(corner),
         color = colors.surfaceVariant,
         // Altura mínima: al escribir, la barra crece para mostrar la dirección completa (varias líneas).
         modifier = modifier.heightIn(min = height),
@@ -547,7 +604,7 @@ private fun AddressField(
                 IconButton(onClick = { typed = TextFieldValue("") }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Borrar", modifier = Modifier.size(18.dp))
                 }
-            } else if (!tab.isHome) {
+            } else if (!tab.isHome && (showReload || tab.isLoading)) {
                 IconButton(
                     onClick = { if (tab.isLoading) tab.session?.stopLoading() else tab.session?.reload() },
                     modifier = Modifier.size(36.dp),

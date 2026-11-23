@@ -35,7 +35,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.droxm.browser.data.Bookmarks
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.settings.HomeSource
+import com.droxm.browser.util.UrlUtils
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.SitesPosition
 import com.droxm.browser.util.BackgroundFiles
@@ -49,13 +58,14 @@ fun HomePage(
     incognitoIsolated: Boolean,
     settings: AppSettings,
     frequentSites: FrequentSites,
+    bookmarks: Bookmarks,
     onOpenSite: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (incognito) {
         IncognitoHome(incognitoIsolated, modifier)
     } else {
-        NormalHome(settings, frequentSites, onOpenSite, modifier)
+        NormalHome(settings, frequentSites, bookmarks, onOpenSite, modifier)
     }
 }
 
@@ -63,6 +73,7 @@ fun HomePage(
 private fun NormalHome(
     settings: AppSettings,
     frequentSites: FrequentSites,
+    bookmarks: Bookmarks,
     onOpenSite: (String) -> Unit,
     modifier: Modifier,
 ) {
@@ -97,10 +108,20 @@ private fun NormalHome(
             )
         }
 
-        val sites = if (settings.showFrequentSites) {
-            frequentSites.sites.filter { it.count >= FrequentSites.MIN_VISITS }.take(settings.homeSiteCount)
-        } else {
-            emptyList()
+        val fromBookmarks = settings.homeSource == HomeSource.BOOKMARKS
+        val sites = when {
+            !settings.showFrequentSites -> emptyList()
+            fromBookmarks -> bookmarks.items.take(settings.homeSiteCount).map {
+                FrequentSites.Site(UrlUtils.displayHost(it.url), it.url, 0, it.added)
+            }
+            else -> frequentSites.sites.filter { it.count >= FrequentSites.MIN_VISITS }.take(settings.homeSiteCount)
+        }
+        val removeSite: (String) -> Unit = { host ->
+            if (fromBookmarks) {
+                bookmarks.items.firstOrNull { UrlUtils.displayHost(it.url) == host }?.let { bookmarks.remove(it) }
+            } else {
+                frequentSites.remove(host)
+            }
         }
         val position = settings.homeSitesPosition
         val columns = if (settings.homeSiteCount == 3 || settings.homeSiteCount == 6) 3 else 4
@@ -112,6 +133,10 @@ private fun NormalHome(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (settings.showHomeClock) {
+                HomeClock(textColor, softTextColor, shadow)
+                Spacer(Modifier.height(16.dp))
+            }
             if (settings.showHomeTitle) {
                 Text(
                     text = "Droxm",
@@ -133,7 +158,7 @@ private fun NormalHome(
             // Posición "Centro": los sitios van debajo del título.
             if (sites.isNotEmpty() && position == SitesPosition.CENTER) {
                 if (settings.showHomeTitle) Spacer(Modifier.height(32.dp))
-                SiteGrid(sites, columns, textColor, onOpenSite) { frequentSites.remove(it) }
+                SiteGrid(sites, columns, textColor, onOpenSite, removeSite)
             }
         }
 
@@ -144,9 +169,37 @@ private fun NormalHome(
                     .align(if (position == SitesPosition.TOP) Alignment.TopCenter else Alignment.BottomCenter)
                     .padding(horizontal = 20.dp, vertical = 24.dp),
             ) {
-                SiteGrid(sites, columns, textColor, onOpenSite) { frequentSites.remove(it) }
+                SiteGrid(sites, columns, textColor, onOpenSite, removeSite)
             }
         }
+    }
+}
+
+/** Hora y fecha (se actualizan solas cada 30 segundos). */
+@Composable
+private fun HomeClock(textColor: Color, softColor: Color, shadow: Shadow?) {
+    val context = LocalContext.current
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(30_000)
+        }
+    }
+    val time = android.text.format.DateFormat.getTimeFormat(context).format(Date(now))
+    val date = SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "AR")).format(Date(now))
+        .replaceFirstChar { it.uppercase() }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = time,
+            style = MaterialTheme.typography.displaySmall.copy(shadow = shadow),
+            color = textColor,
+        )
+        Text(
+            text = date,
+            style = MaterialTheme.typography.bodyMedium.copy(shadow = shadow),
+            color = softColor,
+        )
     }
 }
 

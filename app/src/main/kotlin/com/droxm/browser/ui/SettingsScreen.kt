@@ -1,6 +1,19 @@
 package com.droxm.browser.ui
 
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +55,10 @@ import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.data.SitePermissions
 import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.settings.AppSettings
+import com.droxm.browser.settings.AccentColor
 import com.droxm.browser.settings.BarPosition
+import com.droxm.browser.settings.BarShape
+import com.droxm.browser.settings.HomeSource
 import com.droxm.browser.settings.BarSize
 import com.droxm.browser.settings.SearchEngine
 import com.droxm.browser.settings.SitesPosition
@@ -107,6 +123,49 @@ fun SettingsScreen(
                     onChange = settings::updateShowNavButtons,
                 )
 
+                SwitchSetting(
+                    title = "Botón de inicio",
+                    description = "Vuelve la pestaña a la pantalla de inicio (se pierde su historial de atrás/adelante).",
+                    checked = settings.showHomeButton,
+                    onChange = settings::updateShowHomeButton,
+                )
+
+                SwitchSetting(
+                    title = "Botón de nueva pestaña (+)",
+                    description = "Un acceso directo en la barra, al lado del contador de pestañas.",
+                    checked = settings.showNewTabButton,
+                    onChange = settings::updateShowNewTabButton,
+                )
+
+                SwitchSetting(
+                    title = "Botón de recargar",
+                    description = "Dentro de la barra de direcciones. Mientras carga, siempre aparece el de detener.",
+                    checked = settings.showReloadButton,
+                    onChange = settings::updateShowReloadButton,
+                )
+
+                SwitchSetting(
+                    title = "Esconder la barra al bajar",
+                    description = "La barra desaparece al deslizar hacia abajo y vuelve al subir.",
+                    checked = settings.hideBarOnScroll,
+                    onChange = settings::updateHideBarOnScroll,
+                )
+
+                SwitchSetting(
+                    title = "Deslizar la barra para cambiar de pestaña",
+                    description = "Izquierda = pestaña siguiente, derecha = anterior.",
+                    checked = settings.swipeTabs,
+                    onChange = settings::updateSwipeTabs,
+                )
+
+                ChoiceSetting(
+                    title = "Columnas del selector de pestañas",
+                    options = listOf(1, 2, 3),
+                    selected = settings.tabColumns,
+                    label = { it.toString() },
+                    onSelect = settings::updateTabColumns,
+                )
+
                 SectionTitle("Pantalla de inicio")
 
                 HomeBackgroundSetting(settings)
@@ -121,16 +180,31 @@ fun SettingsScreen(
                 )
 
                 SwitchSetting(
-                    title = "Mostrar sitios más visitados",
-                    description = "Accesos a las páginas a las que más entrás. Mantené apretado un sitio para quitarlo.",
+                    title = "Mostrar hora y fecha",
+                    description = "Un reloj arriba del título.",
+                    checked = settings.showHomeClock,
+                    onChange = settings::updateShowHomeClock,
+                )
+
+                SwitchSetting(
+                    title = "Mostrar accesos directos",
+                    description = "Sitios en la pantalla de inicio. Mantené apretado uno para quitarlo.",
                     checked = settings.showFrequentSites,
                     onChange = settings::updateShowFrequentSites,
                 )
 
                 if (settings.showFrequentSites) {
                     ChoiceSetting(
+                        title = "Qué mostrar",
+                        options = HomeSource.entries,
+                        selected = settings.homeSource,
+                        label = { it.label },
+                        onSelect = settings::updateHomeSource,
+                    )
+
+                    ChoiceSetting(
                         title = "Cantidad de sitios",
-                        description = "Solo aparecen sitios que visitaste 3 veces o más.",
+                        description = if (settings.homeSource == HomeSource.FREQUENT) "Solo aparecen sitios que visitaste 3 veces o más." else null,
                         options = listOf(3, 4, 6, 8, 12),
                         selected = settings.homeSiteCount,
                         label = { it.toString() },
@@ -164,6 +238,50 @@ fun SettingsScreen(
                     selected = settings.searchEngine,
                     label = { it.label },
                     onSelect = settings::updateSearchEngine,
+                )
+
+                if (settings.searchEngine == SearchEngine.CUSTOM) {
+                    var url by remember { mutableStateOf(settings.customSearchUrl) }
+                    OutlinedTextField(
+                        value = url,
+                        onValueChange = {
+                            url = it
+                            settings.updateCustomSearchUrl(it)
+                        },
+                        singleLine = true,
+                        label = { Text("Dirección de búsqueda") },
+                        placeholder = { Text("https://ejemplo.com/search?q=%s") },
+                        supportingText = { Text("Usá %s donde va lo que se busca. Si falta, se agrega al final.") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                AccentSetting(settings)
+
+                if (settings.themeMode != ThemeMode.LIGHT) {
+                    SwitchSetting(
+                        title = "Negro puro (AMOLED)",
+                        description = "En el tema oscuro, fondo totalmente negro. Ahorra batería en pantallas OLED.",
+                        checked = settings.amoled,
+                        onChange = settings::updateAmoled,
+                    )
+                }
+
+                ChoiceSetting(
+                    title = "Forma de la barra de direcciones",
+                    options = BarShape.entries,
+                    selected = settings.barShape,
+                    label = { it.label },
+                    onSelect = settings::updateBarShape,
+                )
+
+                ChoiceSetting(
+                    title = "Tamaño del texto de las páginas",
+                    description = "Se aplica a todos los sitios.",
+                    options = listOf(80, 90, 100, 110, 125, 150, 175, 200),
+                    selected = settings.textZoom,
+                    label = { "$it %" },
+                    onSelect = settings::updateTextZoom,
                 )
 
                 SectionTitle("Privacidad")
@@ -336,6 +454,46 @@ private fun SectionTitle(text: String) {
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
     )
+}
+
+@Composable
+private fun AccentSetting(settings: AppSettings) {
+    val options = AccentColor.entries.filter { it != AccentColor.DYNAMIC || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Color principal", style = MaterialTheme.typography.bodyLarge)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Text(
+                text = "\"Dinámico\" toma los colores de tu fondo de pantalla.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            options.forEach { option ->
+                val selected = option == settings.accent || (option == AccentColor.VIOLET && settings.accent == AccentColor.DYNAMIC && Build.VERSION.SDK_INT < Build.VERSION_CODES.S)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (option == AccentColor.DYNAMIC) {
+                                Brush.sweepGradient(listOf(Color(0xFFE5484D), Color(0xFFF5A524), Color(0xFF30A46C), Color(0xFF0091FF), Color(0xFFD6409F), Color(0xFFE5484D)))
+                            } else {
+                                SolidColor(Color(option.argb))
+                            },
+                        )
+                        .border(if (selected) 3.dp else 0.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
+                        .clickable { settings.updateAccent(option) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) Icon(Icons.Default.Check, contentDescription = option.label, tint = Color.White)
+                }
+            }
+        }
+    }
 }
 
 @Composable
