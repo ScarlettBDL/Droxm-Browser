@@ -2,6 +2,8 @@ package com.droxm.browser.tabs
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.net.Uri
+import android.view.View
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -12,12 +14,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.data.History
+import com.droxm.browser.data.SitePerm
+import com.droxm.browser.data.SitePermissions
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.DownloadRequest
 import com.droxm.browser.engine.EngineDelegate
 import com.droxm.browser.engine.HitInfo
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.util.Downloader
+import com.droxm.browser.util.SystemBridge
 import com.droxm.browser.util.UrlUtils
 
 /**
@@ -32,6 +37,8 @@ class TabManager(
     private val frequentSites: FrequentSites,
     private val history: History,
     private val downloader: Downloader,
+    val sitePermissions: SitePermissions,
+    private val bridge: SystemBridge,
 ) {
 
     /** Lo que se mantuvo apretado en una pestaña (para mostrar el menú contextual). */
@@ -46,6 +53,27 @@ class TabManager(
 
     /** Enlace o imagen sobre el que se mantuvo apretado; la interfaz muestra un menú mientras no sea null. */
     var hit by mutableStateOf<Hit?>(null)
+        private set
+
+    /** Un sitio pide un permiso: la interfaz muestra un diálogo mientras no sea null. */
+    class PermissionPrompt(
+        val site: String,
+        val perms: List<SitePerm>,
+        val incognito: Boolean,
+        val resolve: (allow: Boolean, remember: Boolean) -> Unit,
+    )
+
+    var permissionPrompt by mutableStateOf<PermissionPrompt?>(null)
+        private set
+
+    /** Contenido en pantalla completa (por ejemplo un video). */
+    class Fullscreen(val tabId: Long, val view: View, val exit: () -> Unit)
+
+    var fullscreen by mutableStateOf<Fullscreen?>(null)
+        private set
+
+    /** PDF que se está viendo en el visor propio. */
+    var pdf by mutableStateOf<DownloadRequest?>(null)
         private set
 
     val activeTab: BrowserTab?
@@ -107,6 +135,7 @@ class TabManager(
 
     fun select(id: Long) {
         val tab = tabs.firstOrNull { it.id == id } ?: return
+        if (fullscreen?.tabId != id) exitFullscreen()
         val previous = activeTab
         if (previous != null && previous !== tab) {
             captureThumbnail(previous)
@@ -141,6 +170,7 @@ class TabManager(
         val index = tabs.indexOfFirst { it.id == id }
         if (index < 0) return
         val tab = tabs[index]
+        if (fullscreen?.tabId == id) exitFullscreen()
 
         tab.session?.release()
         tab.session = null
@@ -186,6 +216,67 @@ class TabManager(
     /** Duerme todas las pestañas menos la activa (se usa cuando el sistema pide memoria). */
     fun discardInactive() {
         tabs.filter { it.session != null && it.id != activeId }.forEach { discard(it) }
+    }
+
+    fun exitFullscreen() {
+        val fs = fullscreen ?: return
+        fullscreen = null
+        fs.exit()
+    }
+
+    fun closePdf() {
+        pdf = null
+    }
+
+    fun downloadFile(request: DownloadRequest) = downloader.start(request)
+
+    fun answerPermission(allow: Boolean, remember: Boolean) {
+        val prompt = permissionPrompt ?: return
+        permissionPrompt = null
+        prompt.resolve(allow, remember)
+    }
+
+    /** Decide si una página puede usar cámara, micrófono o ubicación: usa lo guardado o pregunta. */
+    private fun askSitePermissions(tab: BrowserTab, origin: String, perms: List<SitePerm>, respond: (Boolean) -> Unit) {
+        val site = try {
+            Uri.parse(origin).host ?: origin
+        } catch (e: Exception) {
+            origin
+        }
+
+        fun proceed() {
+            // Falta además el permiso de Android: se pide acá y se responde a la página con el resultado.
+            bridge.requestPermissions(perms.flatMap { it.androidPermissions }.distinct()) { result ->
+                respond(perms.all { perm -> perm.androidPermissions.any { result[it] == true } })
+            }
+        }
+
+        val saved = perms.map { sitePermissions.get(site, it) }
+        if (saved.any { it == false }) {
+            respond(false)
+            return
+        }
+        if (saved.all { it == true }) {
+            proceed()
+            return
+        }
+        // Solo se pregunta si la pestaña se está viendo.
+        if (tab.id != activeId) {
+            respond(false)
+            return
+        }
+        permissionPrompt?.resolve?.invoke(false, false)
+        permissionPrompt = PermissionPrompt(site, perms, tab.incognito) { allow, remember ->
+            if (remember && !tab.incognito) perms.forEach { sitePermissions.set(site, it, allow) }
+            if (allow) proceed() else respond(false)
+        }
+    }
+
+    private fun isPdf(request: DownloadRequest): Boolean {
+        val scheme = Uri.parse(request.url).scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return false
+        val path = request.url.substringBefore('?').substringBefore('#')
+        return request.mimeType?.contains("pdf", ignoreCase = true) == true || path.endsWith(".pdf", ignoreCase = true)
     }
 
     fun toggleDesktop(tab: BrowserTab) {
@@ -342,6 +433,7 @@ class TabManager(
     }
 
     private fun discard(tab: BrowserTab) {
+        if (fullscreen?.tabId == tab.id) exitFullscreen()
         captureThumbnail(tab)
         val session = tab.session ?: return
         tab.savedState = session.saveState()
@@ -402,7 +494,36 @@ class TabManager(
         }
 
         override fun onDownload(request: DownloadRequest) {
-            downloader.start(request)
+            // Los PDF se abren en el visor propio (con botón para guardarlos); el resto se descarga.
+            if (isPdf(request)) pdf = request else downloader.start(request)
+        }
+
+        override fun onPermissionRequest(origin: String, camera: Boolean, microphone: Boolean, respond: (Boolean) -> Unit) {
+            val perms = buildList {
+                if (camera) add(SitePerm.CAMERA)
+                if (microphone) add(SitePerm.MICROPHONE)
+            }
+            if (perms.isEmpty()) respond(false) else askSitePermissions(tab, origin, perms, respond)
+        }
+
+        override fun onGeolocationRequest(origin: String, respond: (Boolean) -> Unit) {
+            askSitePermissions(tab, origin, listOf(SitePerm.LOCATION), respond)
+        }
+
+        override fun onShowFullscreen(view: View, onExit: () -> Unit) {
+            if (tab.id != activeId) {
+                onExit()
+                return
+            }
+            fullscreen = Fullscreen(tab.id, view, onExit)
+        }
+
+        override fun onHideFullscreen() {
+            if (fullscreen?.tabId == tab.id) fullscreen = null
+        }
+
+        override fun onFileChooser(intent: android.content.Intent, onResult: (Int, android.content.Intent?) -> Unit) {
+            bridge.chooseFile(intent, onResult)
         }
     }
 }

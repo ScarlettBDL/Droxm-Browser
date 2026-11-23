@@ -36,7 +36,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.provider.Settings
 import com.droxm.browser.data.FrequentSites
+import com.droxm.browser.data.SitePermissions
 import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.BarPosition
@@ -54,6 +57,7 @@ import kotlinx.coroutines.withContext
 fun SettingsScreen(
     settings: AppSettings,
     frequentSites: FrequentSites,
+    sitePermissions: SitePermissions,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -183,6 +187,35 @@ fun SettingsScreen(
                             Text(if (FilterUpdater.busy) "Actualizando…" else "Actualizar ahora")
                         }
                     }
+                }
+
+                Column {
+                    Text("Permisos de sitios", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Cámara, micrófono y ubicación que permitiste o bloqueaste con \"Recordar\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { sitePermissions.clear() }, enabled = sitePermissions.count > 0) {
+                        Text("Borrar permisos guardados (${sitePermissions.count})")
+                    }
+                }
+
+                Column {
+                    val ctx = LocalContext.current
+                    Text("Contraseñas y autocompletar", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Droxm usa el autocompletar de Android (Google, Bitwarden, etc.). Se elige en los ajustes del sistema, en \"Autocompletar\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = {
+                        try {
+                            ctx.startActivity(Intent(Settings.ACTION_SETTINGS))
+                        } catch (e: Exception) {
+                            // Sin pantalla de ajustes disponible.
+                        }
+                    }) { Text("Abrir ajustes del sistema") }
                 }
 
                 Column {

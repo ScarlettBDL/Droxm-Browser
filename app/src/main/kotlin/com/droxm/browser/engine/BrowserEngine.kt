@@ -1,5 +1,6 @@
 package com.droxm.browser.engine
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 
@@ -37,6 +38,20 @@ interface EngineDelegate {
 
     /** La página inició la descarga de un archivo. */
     fun onDownload(request: DownloadRequest)
+
+    /** La página pide la cámara y/o el micrófono. [respond] se llama una sola vez con la decisión. */
+    fun onPermissionRequest(origin: String, camera: Boolean, microphone: Boolean, respond: (Boolean) -> Unit)
+
+    /** La página pide la ubicación. */
+    fun onGeolocationRequest(origin: String, respond: (Boolean) -> Unit)
+
+    /** Un video (u otro contenido) pide pantalla completa. [onExit] le avisa a la página que se salió. */
+    fun onShowFullscreen(view: View, onExit: () -> Unit)
+
+    fun onHideFullscreen()
+
+    /** La página quiere que se elija un archivo. Hay que abrir [intent] y devolver el resultado. */
+    fun onFileChooser(intent: Intent, onResult: (resultCode: Int, data: Intent?) -> Unit)
 }
 
 /** Una pestaña "viva" (con su vista de motor). */

@@ -17,6 +17,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -168,6 +171,69 @@ private class WebViewSession(
                 lastProgress = newProgress
                 delegate.onProgressChanged(newProgress)
             }
+        }
+
+        // Cámara y micrófono (videollamadas, grabar audio, escanear códigos).
+        override fun onPermissionRequest(request: PermissionRequest?) {
+            if (request == null) return
+            val wanted = request.resources
+            val camera = PermissionRequest.RESOURCE_VIDEO_CAPTURE in wanted
+            val microphone = PermissionRequest.RESOURCE_AUDIO_CAPTURE in wanted
+            if (!camera && !microphone) {
+                request.deny()
+                return
+            }
+            delegate.onPermissionRequest(request.origin.toString(), camera, microphone) { granted ->
+                webView.post {
+                    try {
+                        if (granted) {
+                            request.grant(
+                                wanted.filter {
+                                    it == PermissionRequest.RESOURCE_VIDEO_CAPTURE || it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                                }.toTypedArray(),
+                            )
+                        } else {
+                            request.deny()
+                        }
+                    } catch (e: IllegalStateException) {
+                        // La página canceló el pedido mientras se decidía.
+                    }
+                }
+            }
+        }
+
+        override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+            if (origin == null || callback == null) return
+            delegate.onGeolocationRequest(origin) { granted -> callback.invoke(origin, granted, false) }
+        }
+
+        // Pantalla completa de videos.
+        override fun onShowCustomView(view: View?, callback: WebChromeClient.CustomViewCallback?) {
+            if (view == null || callback == null) return
+            delegate.onShowFullscreen(view) { callback.onCustomViewHidden() }
+        }
+
+        override fun onHideCustomView() {
+            delegate.onHideFullscreen()
+        }
+
+        // Botones de "elegir archivo" / "subir foto" de las páginas.
+        override fun onShowFileChooser(
+            webView: WebView?,
+            filePathCallback: ValueCallback<Array<Uri>>?,
+            fileChooserParams: WebChromeClient.FileChooserParams?,
+        ): Boolean {
+            if (filePathCallback == null || fileChooserParams == null) return false
+            val intent = try {
+                fileChooserParams.createIntent()
+            } catch (e: Exception) {
+                filePathCallback.onReceiveValue(null)
+                return true
+            }
+            delegate.onFileChooser(intent) { code, data ->
+                filePathCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(code, data))
+            }
+            return true
         }
 
         override fun onReceivedTitle(view: WebView?, title: String?) {
@@ -344,6 +410,8 @@ private class WebViewSession(
         s.useWideViewPort = true
         s.loadWithOverviewMode = true
         s.setSupportMultipleWindows(true)
+        // Contraseñas y datos: lo resuelve el servicio de autocompletar del sistema (Google, Bitwarden...).
+        webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         s.javaScriptCanOpenWindowsAutomatically = false
         // Sin el "; wv" muchos sitios sirven la versión móvil normal en vez de rechazar el WebView.
         mobileUserAgent = s.userAgentString.replace("; wv", "")

@@ -47,6 +47,18 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 - Al cerrar y volver a abrir la app, **se restauran tus pestañas normales**.
 - Cerrar una pestaña o todas de una vez.
 
+### Compatibilidad con las webs
+
+- **Cámara, micrófono y ubicación:** la página pide permiso y Droxm te pregunta (Permitir /
+  Bloquear, con "Recordar mi decisión"; en incógnito nunca se recuerda). Las decisiones se
+  borran desde Ajustes.
+- **Videos en pantalla completa**, con rotación libre.
+- **Subir archivos y fotos** desde los botones de las páginas.
+- **Visor de PDF propio:** los PDF se abren dentro de Droxm (páginas dibujadas a medida que
+  se ven, zoom con − / + o doble toque) y se pueden guardar.
+- **Contraseñas y autocompletar:** Droxm usa el servicio de autocompletar de Android (Google,
+  Bitwarden, etc.).
+
 ### Favoritos, historial y descargas
 
 - **Favoritos:** menú ⋮ → *Agregar a favoritos*. Con buscador.
@@ -108,7 +120,7 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 | --- | --- |
 | **Android** | 8.0 (API 26) o superior |
 | **WebView del sistema** | Una versión reciente (se actualiza desde Play Store) |
-| **Permisos** | Internet y estado de la red (para actualizar listas solo con Wi-Fi). Hasta Android 9, además, guardar descargas |
+| **Permisos** | Internet y estado de la red (para actualizar listas solo con Wi-Fi). Cámara, micrófono y ubicación solo se piden cuando una página los usa y vos aceptás. Hasta Android 9, además, guardar descargas |
 | **Conexión** | Wi-Fi o datos para navegar |
 | **Espacio** | El del APK; el fondo de inicio es opcional (hasta 150 MB) |
 
@@ -198,11 +210,13 @@ Las normales se restauran al volver a abrir. Las de incógnito nunca se guardan,
 propósito.
 
 **¿Puedo descargar archivos o abrir PDFs?**
-Descargar sí (archivos e imágenes, a la carpeta Descargas). No hay visor de PDF propio:
-el archivo se descarga y se abre con otra app.
+Sí. Los PDF se abren en el visor propio (con botón *Guardar*) y el resto de los archivos e
+imágenes se descarga a la carpeta Descargas.
 
 **¿Necesita permisos raros?**
-No: Internet, estado de la red y (solo hasta Android 9) guardar descargas. Para elegir un
+No: Internet y estado de la red. Cámara, micrófono y ubicación están declarados, pero Android
+solo te los pide cuando una página los usa y aceptás. Hasta Android 9, además, guardar
+descargas. Para elegir un
 fondo se usa el selector del sistema, así que la app no necesita acceso a tus fotos.
 
 **¿Funciona sin Google Play?**
@@ -216,7 +230,11 @@ La interfaz está pensada en español y todavía no tiene otros idiomas.
 
 ## Limitaciones conocidas
 
-- Sin lector de PDF propio.
+- El visor de PDF no maneja PDF con contraseña (ofrece descargarlo), no selecciona texto ni
+  busca dentro del documento.
+- WebView no soporta notificaciones web ni push: las páginas que las piden no las reciben.
+- Guardar y rellenar contraseñas depende del servicio de autocompletar que tengas activado
+  en Android; Droxm no tiene gestor propio.
 - El bloqueador solo filtra pedidos de red: no soporta reglas con expresiones regulares ni
   `$redirect`/`$csp`, y los selectores de ocultamiento (`##`) de EasyList no se aplican
   (solo un ocultamiento básico de anuncios de Google). El tipo de recurso se deduce de las

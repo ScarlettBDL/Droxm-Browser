@@ -91,8 +91,10 @@ fun BrowserScreen(
     // Lo que se está escribiendo en la barra (vacío si no tiene foco): de acá salen las sugerencias.
     var typing by remember { mutableStateOf("") }
 
-    BackHandler(enabled = library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
+    BackHandler(enabled = manager.fullscreen != null || manager.pdf != null || library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
+            manager.fullscreen != null -> manager.exitFullscreen()
+            manager.pdf != null -> manager.closePdf()
             library != null -> library = null
             showSettings -> showSettings = false
             showSwitcher -> showSwitcher = false
@@ -191,6 +193,7 @@ fun BrowserScreen(
             SettingsScreen(
                 settings = settings,
                 frequentSites = frequentSites,
+                sitePermissions = manager.sitePermissions,
                 onClose = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -198,6 +201,19 @@ fun BrowserScreen(
 
         // Menú de enlace/imagen (al mantener apretado algo en la página).
         manager.hit?.let { LinkMenu(manager, it) }
+
+        manager.pdf?.let { request ->
+            PdfViewerScreen(
+                request = request,
+                onClose = { manager.closePdf() },
+                onSave = { manager.downloadFile(request) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        manager.permissionPrompt?.let { PermissionDialog(it, manager::answerPermission) }
+
+        manager.fullscreen?.let { FullscreenOverlay(it.view, Modifier.fillMaxSize()) }
     }
 }
 
