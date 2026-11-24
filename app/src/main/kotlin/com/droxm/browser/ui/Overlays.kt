@@ -44,6 +44,11 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
             isClickable = true
             keepScreenOn = true
         }
+        // Como otros navegadores, se esconde toda la interfaz mientras dura el video: no se dibuja ni se recalcula
+        // nada por detrás en cada cuadro, y al girar la pantalla no hay nada que volver a medir.
+        val appRoot = content?.getChildAt(0)
+        val appRootVisibility = appRoot?.visibility ?: View.VISIBLE
+        appRoot?.visibility = View.GONE
         if (content != null) {
             (view.parent as? ViewGroup)?.removeView(view)
             holder.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -55,6 +60,7 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         controller?.hide(WindowInsetsCompat.Type.systemBars())
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         onDispose {
+            appRoot?.visibility = appRootVisibility
             if (content != null) {
                 content.removeView(holder)
                 holder.removeAllViews()

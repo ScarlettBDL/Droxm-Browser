@@ -80,7 +80,12 @@ class TabManager(
         val a = activeTab
         return "pestañas=${tabs.size} vivas=${tabs.count { it.session != null }} pantallaCompleta=${fullscreen != null} " +
             "popups(vivos/creados)=${com.droxm.browser.engine.EngineStats.popupsAlive}/${com.droxm.browser.engine.EngineStats.popupsCreated} " +
-            "sitio=${SiteSettings.siteOf(a?.url) ?: "-"} cargando=${a?.isLoading}"
+            "sitio=${SiteSettings.siteOf(a?.url) ?: "-"} cargando=${a?.isLoading}" +
+            (fullscreen?.view?.let { v ->
+                " vistaFS=${v.javaClass.simpleName} ${v.width}x${v.height} aceleradaHW=${v.isHardwareAccelerated} " +
+                    "adjunta=${v.isAttachedToWindow} capa=${v.layerType} visible=${v.visibility}"
+            } ?: "") +
+            (a?.session?.view?.let { v -> " webview(capa=${v.layerType} vis=${v.visibility} hw=${v.isHardwareAccelerated})" } ?: "")
     }
 
     fun dismissPopupNotice() {
