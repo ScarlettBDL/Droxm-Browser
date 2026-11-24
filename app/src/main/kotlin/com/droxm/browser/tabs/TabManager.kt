@@ -718,8 +718,10 @@ class TabManager(
                 return
             }
             fullscreen = Fullscreen(tab.id, view, onExit)
-            // La página de atrás no se dibuja mientras el video ocupa la pantalla: ahorra GPU y CPU.
-            tab.session?.view?.visibility = View.INVISIBLE
+            // Con el video en pantalla completa se liberan las otras pestañas y la página de atrás sale del layout
+            // (GONE): así, al girar el celular, no se vuelve a calcular ni dibujar la página al nuevo tamaño.
+            discardInactive()
+            tab.session?.view?.visibility = View.GONE
         }
 
         override fun onHideFullscreen() {
