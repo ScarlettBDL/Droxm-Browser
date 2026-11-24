@@ -16,7 +16,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -105,6 +110,18 @@ fun BrowserScreen(
 
     LaunchedEffect(settings.textZoom) { manager.applyTextZoom() }
 
+    // Al cerrar el teclado, la barra de dirección pierde el foco y vuelve a mostrar sus botones.
+    val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    var imeWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(imeOpen) {
+        if (imeOpen) {
+            imeWasOpen = true
+        } else if (imeWasOpen) {
+            imeWasOpen = false
+            focusManager.clearFocus()
+        }
+    }
+
     BackHandler(enabled = manager.fullscreen != null || manager.pdf != null || library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
             manager.fullscreen != null -> manager.exitFullscreen()
@@ -121,8 +138,9 @@ fun BrowserScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
-            .imePadding(),
+            // Barras del sistema y teclado: se usa el mayor de los dos en cada borde, así la barra de búsqueda
+            // nunca queda tapada por el teclado.
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime)),
     ) {
         if (tab != null) {
             Column(Modifier.fillMaxSize()) {

@@ -709,10 +709,13 @@ class TabManager(
                 return
             }
             fullscreen = Fullscreen(tab.id, view, onExit)
+            // La página de atrás no se dibuja mientras el video ocupa la pantalla: ahorra GPU y CPU.
+            tab.session?.view?.visibility = View.INVISIBLE
         }
 
         override fun onHideFullscreen() {
             if (fullscreen?.tabId == tab.id) fullscreen = null
+            tab.session?.view?.visibility = View.VISIBLE
         }
 
         override fun onFileChooser(intent: android.content.Intent, onResult: (Int, android.content.Intent?) -> Unit) {

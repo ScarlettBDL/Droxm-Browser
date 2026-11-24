@@ -344,6 +344,21 @@ fun SettingsScreen(
 
                 Column {
                     val ctx = LocalContext.current
+                    Text("Diagnóstico", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Si la app se cierra sola, copiá el informe y mandalo: dice si fue por falta de memoria o por un error.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = {
+                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Droxm", com.droxm.browser.util.Diagnostics.report(ctx)))
+                        android.widget.Toast.makeText(ctx, "Informe copiado", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Copiar informe") }
+                }
+
+                Column {
+                    val ctx = LocalContext.current
                     Text("Contraseñas y autocompletar", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "Droxm usa el autocompletar de Android (Google, Bitwarden, etc.). Se elige en los ajustes del sistema, en \"Autocompletar\".",
