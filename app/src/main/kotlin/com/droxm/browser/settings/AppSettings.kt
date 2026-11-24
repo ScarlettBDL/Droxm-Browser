@@ -100,6 +100,9 @@ class AppSettings(context: Context) {
     var homeDarkness by mutableStateOf(prefs.getFloat("home_darkness", 0.35f).coerceIn(0f, MAX_DARKNESS))
         private set
 
+    var showHomeLogo by mutableStateOf(prefs.getBoolean("show_home_logo", true))
+        private set
+
     var showHomeTitle by mutableStateOf(prefs.getBoolean("show_home_title", true))
         private set
 
@@ -183,6 +186,11 @@ class AppSettings(context: Context) {
     fun updateHomeDarkness(value: Float) {
         homeDarkness = value.coerceIn(0f, MAX_DARKNESS)
         prefs.edit().putFloat("home_darkness", homeDarkness).apply()
+    }
+
+    fun updateShowHomeLogo(value: Boolean) {
+        showHomeLogo = value
+        prefs.edit().putBoolean("show_home_logo", value).apply()
     }
 
     fun updateShowHomeTitle(value: Boolean) {

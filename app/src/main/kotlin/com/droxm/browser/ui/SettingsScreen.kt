@@ -175,6 +175,13 @@ fun SettingsScreen(
                 DarknessSetting(settings)
 
                 SwitchSetting(
+                    title = "Mostrar el logo",
+                    description = "Tu logo, redondo, arriba del título.",
+                    checked = settings.showHomeLogo,
+                    onChange = settings::updateShowHomeLogo,
+                )
+
+                SwitchSetting(
                     title = "Mostrar el texto \"Droxm\"",
                     description = "El título grande de la pantalla de inicio.",
                     checked = settings.showHomeTitle,

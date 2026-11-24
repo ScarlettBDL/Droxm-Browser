@@ -1,5 +1,7 @@
 # Droxm Browser
 
+<p align="center"><img src="docs/logo.png" alt="Logo de Droxm" width="160"></p>
+
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#requisitos)
 [![Versión](https://img.shields.io/badge/versi%C3%B3n-0.1.0-6C4DFF)](#)
 [![Gratis](https://img.shields.io/badge/precio-gratis-success)](#)
@@ -82,6 +84,7 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 
 ### Pantalla de inicio
 
+- **Tu logo** arriba del título (se puede ocultar) y como ícono de la app.
 - **Fondo de naturaleza por defecto:** fotos de paisajes de Wikimedia Commons (imágenes
   destacadas, con licencia libre) que se descargan solas con Wi-Fi y cambian cada vez que
   abrís el navegador. Si no hay conexión, se ve un degradado.

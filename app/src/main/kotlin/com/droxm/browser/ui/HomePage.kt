@@ -1,6 +1,9 @@
 package com.droxm.browser.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.droxm.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -134,6 +137,16 @@ private fun NormalHome(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (settings.showHomeLogo) {
+                Image(
+                    painter = painterResource(R.drawable.droxm_logo),
+                    contentDescription = "Logo de Droxm",
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape),
+                )
+                Spacer(Modifier.height(16.dp))
+            }
             if (settings.showHomeClock) {
                 HomeClock(textColor, softTextColor, shadow)
                 Spacer(Modifier.height(16.dp))
