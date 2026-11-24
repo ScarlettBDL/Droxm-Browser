@@ -54,6 +54,7 @@ import android.provider.Settings
 import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.SitePermissions
+import com.droxm.browser.data.SiteSettings
 import com.droxm.browser.engine.FilterUpdater
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.settings.AccentColor
@@ -75,6 +76,7 @@ fun SettingsScreen(
     settings: AppSettings,
     frequentSites: FrequentSites,
     sitePermissions: SitePermissions,
+    siteSettings: SiteSettings,
     backgrounds: HomeBackgrounds,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -173,13 +175,6 @@ fun SettingsScreen(
                 BackgroundsSettings(backgrounds)
 
                 DarknessSetting(settings)
-
-                SwitchSetting(
-                    title = "Mostrar el logo",
-                    description = "Tu logo, redondo, arriba del título.",
-                    checked = settings.showHomeLogo,
-                    onChange = settings::updateShowHomeLogo,
-                )
 
                 SwitchSetting(
                     title = "Mostrar el texto \"Droxm\"",
@@ -313,6 +308,25 @@ fun SettingsScreen(
                         TextButton(onClick = { FilterUpdater.updateNow() }, enabled = !FilterUpdater.busy) {
                             Text(if (FilterUpdater.busy) "Actualizando…" else "Actualizar ahora")
                         }
+                    }
+                }
+
+                SwitchSetting(
+                    title = "Bloquear ventanas emergentes",
+                    description = "Frena las ventanas que se abren solas o pegadas una a otra, y las que van a anunciantes. Los enlaces que tocás siguen abriendo pestañas nuevas. Si un sitio las necesita, se permiten desde \"Ajustes del sitio\".",
+                    checked = settings.blockPopups,
+                    onChange = settings::updateBlockPopups,
+                )
+
+                Column {
+                    Text("Ajustes por sitio", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Bloqueador, ventanas emergentes, versión de escritorio y tamaño del texto que cambiaste para un sitio puntual (menú ⋮ → Ajustes del sitio).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { siteSettings.clear() }, enabled = siteSettings.count > 0) {
+                        Text("Borrar ajustes de sitios (${siteSettings.count})")
                     }
                 }
 

@@ -30,6 +30,9 @@ class BrowserTab(
     /** Pide la versión de escritorio de los sitios. */
     var desktop by mutableStateOf(false)
 
+    /** El modo escritorio de esta pestaña lo impuso un ajuste del sitio (se deshace al salir de él). Solo en memoria. */
+    var desktopBySite: Boolean = false
+
     /** Grupo al que pertenece (0 = ninguno). */
     var groupId by mutableLongStateOf(NO_GROUP)
 

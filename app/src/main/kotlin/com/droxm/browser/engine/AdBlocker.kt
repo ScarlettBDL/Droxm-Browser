@@ -16,6 +16,41 @@ object AdBlocker {
     @Volatile
     var enabled: Boolean = true
 
+    /** Sitios donde el usuario apagó el bloqueador (dominio sin "www."). Se reemplaza entero, nunca se modifica. */
+    @Volatile
+    var allowedHosts: Set<String> = emptySet()
+
+    /** true si el bloqueador está encendido y no se apagó para el sitio de [pageUrl]. */
+    fun activeFor(pageUrl: String?): Boolean {
+        if (!enabled) return false
+        val allowed = allowedHosts
+        if (allowed.isEmpty() || pageUrl == null) return true
+        var h = hostOf(pageUrl) ?: return true
+        // Apagado para example.com también cubre m.example.com.
+        while (true) {
+            if (h in allowed) return false
+            val dot = h.indexOf('.')
+            if (dot < 0 || h.indexOf('.', dot + 1) < 0) return true
+            h = h.substring(dot + 1)
+        }
+    }
+
+    fun hostOf(url: String): String? {
+        val start = url.indexOf("://").takeIf { it >= 0 }?.plus(3) ?: return null
+        var end = url.length
+        for (c in "/?#") url.indexOf(c, start).let { if (it in 0 until end) end = it }
+        var h = url.substring(start, end).substringAfterLast('@').substringBefore(':').lowercase()
+        if (h.startsWith("www.")) h = h.substring(4)
+        return h.ifEmpty { null }
+    }
+
+    /** true si [url] (destino de una ventana emergente) es de un anunciante conocido. */
+    fun blocksPopup(url: String, pageUrl: String?): Boolean {
+        if (!activeFor(pageUrl)) return false
+        if (NativeAdblock.ready) return (NativeAdblock.check(url, pageUrl, null, "iframe") and 1) != 0
+        return shouldBlock(hostOf(url))
+    }
+
     private val HOSTS = setOf(
         // Google
         "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
@@ -66,7 +101,7 @@ object AdBlocker {
      * Con el motor nativo cargado se evalúa todo en una sola llamada; si no, se usa la lista corta de dominios.
      */
     fun intercept(url: String, host: String?, path: String, source: String?, accept: String?, dest: String?): WebResourceResponse? {
-        if (!enabled) return null
+        if (!activeFor(source)) return null
         if (NativeAdblock.ready) {
             val v = NativeAdblock.check(url, source, accept, dest)
             return if ((v and 1) != 0) emptyResponseFor(v shr 1) else null

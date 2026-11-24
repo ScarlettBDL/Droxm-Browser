@@ -4,7 +4,7 @@
 //!   el resto = tipo de recurso), sin crear objetos en Java.
 //! Ningún pánico cruza hacia Java: todo va envuelto en `catch_unwind`.
 
-use droxm_adblock_core::{Builder, Engine};
+use droxm_adblock_core::{Builder, Cosmetic, Engine};
 use jni::objects::{JClass, JObjectArray, JString};
 use jni::sys::{jint, jstring};
 use jni::JNIEnv;
@@ -12,6 +12,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, RwLock};
 
 static ENGINE: RwLock<Option<Arc<Engine>>> = RwLock::new(None);
+static COSMETIC: RwLock<Option<Arc<Cosmetic>>> = RwLock::new(None);
 
 fn opt_string(env: &mut JNIEnv, s: &JString) -> Option<String> {
     if s.as_raw().is_null() {
@@ -26,7 +27,7 @@ fn compile(paths: &[String], out: &str) -> Result<String, String> {
         let bytes = std::fs::read(p).map_err(|e| format!("{p}: {e}"))?;
         b.add_list(&String::from_utf8_lossy(&bytes));
     }
-    let (set, st) = b.finish();
+    let (set, st, cosmetic) = b.finish_with_cosmetic();
     if set.is_empty() {
         return Err("las listas no tienen reglas".into());
     }
@@ -34,6 +35,10 @@ fn compile(paths: &[String], out: &str) -> Result<String, String> {
     let tmp = format!("{out}.tmp");
     std::fs::write(&tmp, set.to_bytes()).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, out).map_err(|e| e.to_string())?;
+    // Reglas cosméticas (`##`) normalizadas, junto al bloque: se vuelven a leer al cargar.
+    let ctmp = format!("{out}.cosm.tmp");
+    std::fs::write(&ctmp, cosmetic).map_err(|e| e.to_string())?;
+    std::fs::rename(&ctmp, format!("{out}.cosm")).map_err(|e| e.to_string())?;
     Ok(format!(
         "{};{};{};{};{};{};{}",
         st.blocks, st.exceptions, st.duplicates, st.badfilter_removed, st.cosmetic, st.regex, st.unsupported
@@ -78,11 +83,13 @@ pub extern "system" fn Java_com_droxm_browser_engine_NativeAdblock_nativeLoad<'l
 ) -> jint {
     catch_unwind(AssertUnwindSafe(|| -> Option<jint> {
         let path = opt_string(&mut env, &path)?;
-        let bytes = std::fs::read(path).ok()?;
+        let bytes = std::fs::read(&path).ok()?;
         let engine = Engine::from_bytes(&bytes).ok()?;
         let n = engine.rule_count() as jint;
         // El motor nuevo se arma fuera del candado: solo el intercambio bloquea a los lectores.
         *ENGINE.write().ok()? = Some(Arc::new(engine));
+        let cosmetic = std::fs::read_to_string(format!("{path}.cosm")).map(|t| Cosmetic::from_text(&t)).ok();
+        *COSMETIC.write().ok()? = cosmetic.map(Arc::new);
         Some(n)
     }))
     .ok()
@@ -111,4 +118,42 @@ pub extern "system" fn Java_com_droxm_browser_engine_NativeAdblock_nativeCheck<'
     .ok()
     .flatten()
     .unwrap_or(0)
+}
+
+/// CSS de ocultamiento para un sitio (reglas propias del dominio + genéricas complejas). "" si no hay.
+#[no_mangle]
+pub extern "system" fn Java_com_droxm_browser_engine_NativeAdblock_nativeCosmeticHost<'l>(
+    mut env: JNIEnv<'l>,
+    _class: JClass<'l>,
+    host: JString<'l>,
+) -> jstring {
+    let css = catch_unwind(AssertUnwindSafe(|| -> Option<String> {
+        let c = COSMETIC.read().ok()?.as_ref().cloned()?;
+        let host = opt_string(&mut env, &host)?;
+        Some(c.for_host(&host))
+    }))
+    .ok()
+    .flatten()
+    .unwrap_or_default();
+    env.new_string(css).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
+}
+
+/// CSS para las clases e ids que la página reporta (separados por espacio, `.clase` / `#id`).
+#[no_mangle]
+pub extern "system" fn Java_com_droxm_browser_engine_NativeAdblock_nativeCosmeticNames<'l>(
+    mut env: JNIEnv<'l>,
+    _class: JClass<'l>,
+    host: JString<'l>,
+    names: JString<'l>,
+) -> jstring {
+    let css = catch_unwind(AssertUnwindSafe(|| -> Option<String> {
+        let c = COSMETIC.read().ok()?.as_ref().cloned()?;
+        let host = opt_string(&mut env, &host)?;
+        let names = opt_string(&mut env, &names)?;
+        Some(c.for_names(&host, &names))
+    }))
+    .ok()
+    .flatten()
+    .unwrap_or_default();
+    env.new_string(css).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
 }

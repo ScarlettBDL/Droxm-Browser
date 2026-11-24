@@ -42,6 +42,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +77,7 @@ import com.droxm.browser.tabs.BrowserTab
 import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.util.Actions
 import com.droxm.browser.util.UrlUtils
+import kotlinx.coroutines.delay
 
 @Composable
 fun BrowserScreen(
@@ -91,6 +93,7 @@ fun BrowserScreen(
     val focusManager = LocalFocusManager.current
     var showSwitcher by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showSiteSettings by remember { mutableStateOf(false) }
 
     // 0 = favoritos, 1 = historial, null = cerrado.
     var library by remember { mutableStateOf<Int?>(null) }
@@ -132,6 +135,7 @@ fun BrowserScreen(
                             bookmarks = bookmarks,
                             onTyping = { typing = it },
                             onFind = { findTabId = tab.id },
+                            onSiteSettings = { showSiteSettings = true },
                             onOpenLibrary = {
                                 focusManager.clearFocus()
                                 library = it
@@ -217,6 +221,7 @@ fun BrowserScreen(
                 settings = settings,
                 frequentSites = frequentSites,
                 sitePermissions = manager.sitePermissions,
+                siteSettings = manager.siteSettings,
                 backgrounds = backgrounds,
                 onClose = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
@@ -236,6 +241,34 @@ fun BrowserScreen(
         }
 
         manager.permissionPrompt?.let { PermissionDialog(it, manager::answerPermission) }
+
+        if (showSiteSettings && tab != null) SiteSettingsDialog(manager, tab) { showSiteSettings = false }
+
+        manager.popupNotice?.let { notice ->
+            LaunchedEffect(notice) {
+                delay(7000)
+                manager.dismissPopupNotice()
+            }
+            Surface(
+                tonalElevation = 6.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Se bloqueó una ventana emergente", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
+                    if (notice.site != null) {
+                        TextButton(onClick = { manager.allowPopupsFromNotice() }) { Text("Permitir") }
+                    } else {
+                        TextButton(onClick = { manager.dismissPopupNotice() }) { Text("OK") }
+                    }
+                }
+            }
+        }
 
         manager.fullscreen?.let { FullscreenOverlay(it.view, Modifier.fillMaxSize()) }
     }
@@ -310,6 +343,7 @@ private fun BrowserBar(
     bookmarks: Bookmarks,
     onTyping: (String) -> Unit,
     onFind: () -> Unit,
+    onSiteSettings: () -> Unit,
     onOpenLibrary: (Int) -> Unit,
     onShowTabs: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -464,6 +498,14 @@ private fun BrowserBar(
                         onClick = {
                             menuOpen = false
                             Actions.share(context, tab.url)
+                        },
+                    )
+                    if (!tab.incognito) DropdownMenuItem(
+                        text = { Text("Ajustes del sitio") },
+                        enabled = !tab.isHome,
+                        onClick = {
+                            menuOpen = false
+                            onSiteSettings()
                         },
                     )
                     DropdownMenuItem(

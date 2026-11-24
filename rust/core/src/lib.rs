@@ -4,6 +4,7 @@
 //! `engine` (índices y evaluación), `exceptions` (precedencia), `domains` (hosts y terceros),
 //! `resources` (clasificación), `pattern` (comparación sin regex), `hash`.
 
+pub mod cosmetic;
 pub mod domains;
 pub mod engine;
 pub mod exceptions;
@@ -14,6 +15,7 @@ pub mod pattern;
 pub mod resources;
 pub mod store;
 
+pub use cosmetic::{Cosmetic, CosmeticBuilder};
 pub use engine::{Engine, Verdict};
 pub use exceptions::Reason;
 pub use lists::{Builder, Stats};

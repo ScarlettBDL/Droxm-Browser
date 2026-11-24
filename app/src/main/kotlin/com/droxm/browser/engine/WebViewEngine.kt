@@ -108,7 +108,11 @@ private class WebViewSession(
             delegate.onLoadingChanged(false)
             if (url != null) delegate.onUrlChanged(url)
             publishNavigation(view)
-            if (AdBlocker.enabled) view?.evaluateJavascript(AdBlocker.HIDE_SCRIPT, null)
+            if (AdBlocker.activeFor(url)) {
+                view?.evaluateJavascript(AdBlocker.HIDE_SCRIPT, null)
+                // Respaldo del script de inicio de documento (es idempotente).
+                if (NativeAdblock.ready) view?.evaluateJavascript(CosmeticBridge.SCRIPT, null)
+            }
         }
 
         // Anuncios de dominios conocidos: respuesta vacía al instante, sin pasar por la red (y sin pantalla de error).
@@ -248,7 +252,12 @@ private class WebViewSession(
             isUserGesture: Boolean,
             resultMsg: Message?,
         ): Boolean {
-            if (view == null || resultMsg == null || !isUserGesture) return false
+            if (view == null || resultMsg == null) return false
+            // Sin gesto del usuario es un popup automático. Con gesto, el delegado decide (ajuste, sitio, ritmo).
+            val viaLink = view.hitTestResult.type.let {
+                it == WebView.HitTestResult.SRC_ANCHOR_TYPE || it == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+            }
+            if (!isUserGesture || !delegate.allowPopup(viaLink)) return false
             val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
 
             val popup = WebView(view.context)
@@ -260,7 +269,7 @@ private class WebViewSession(
                 if (done) return
                 done = true
                 if (url.startsWith("http://", true) || url.startsWith("https://", true)) {
-                    delegate.onOpenInNewTab(url)
+                    if (delegate.allowPopupTarget(url)) delegate.onOpenInNewTab(url)
                 } else {
                     shouldHandleExternally(view.context, Uri.parse(url))
                 }
@@ -300,6 +309,7 @@ private class WebViewSession(
         configure()
         webView.webViewClient = client
         webView.webChromeClient = chrome
+        setupCosmetic()
 
         // Archivos que la página manda a descargar (PDF, APK, zip, etc.).
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
@@ -325,6 +335,18 @@ private class WebViewSession(
 
         // Resultados de "buscar en la página".
         webView.setFindListener { ordinal, count, _ -> onFindResult?.invoke(ordinal, count) }
+    }
+
+    /** Puente para los filtros cosméticos, más el script que corre al empezar cada documento si el WebView lo permite. */
+    private fun setupCosmetic() {
+        try {
+            webView.addJavascriptInterface(CosmeticBridge { pageUrl }, CosmeticBridge.NAME)
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(webView, CosmeticBridge.SCRIPT, setOf("*"))
+            }
+        } catch (e: Exception) {
+            // Sin filtros cosméticos: el bloqueo de pedidos sigue funcionando.
+        }
     }
 
     private fun handleLongPress(): Boolean {

@@ -16,6 +16,8 @@ import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.data.History
 import com.droxm.browser.data.SitePerm
 import com.droxm.browser.data.SitePermissions
+import com.droxm.browser.data.SiteSettings
+import com.droxm.browser.engine.AdBlocker
 import com.droxm.browser.engine.BrowserEngine
 import com.droxm.browser.engine.DownloadRequest
 import com.droxm.browser.engine.EngineDelegate
@@ -38,6 +40,7 @@ class TabManager(
     private val history: History,
     private val downloader: Downloader,
     val sitePermissions: SitePermissions,
+    val siteSettings: SiteSettings,
     private val bridge: SystemBridge,
 ) {
 
@@ -65,6 +68,27 @@ class TabManager(
 
     var permissionPrompt by mutableStateOf<PermissionPrompt?>(null)
         private set
+
+    /** Se bloqueó una ventana emergente: la interfaz muestra un aviso mientras no sea null. [site] es null en incógnito (no se puede recordar). */
+    class PopupNotice(val site: String?, val url: String?)
+
+    var popupNotice by mutableStateOf<PopupNotice?>(null)
+        private set
+
+    fun dismissPopupNotice() {
+        popupNotice = null
+    }
+
+    /** "Permitir en este sitio" desde el aviso: se recuerda y, si había un destino, se abre. */
+    fun allowPopupsFromNotice() {
+        val notice = popupNotice ?: return
+        popupNotice = null
+        val site = notice.site ?: return
+        siteSettings.setPopupsAllowed(site, true)
+        val url = notice.url ?: return
+        val tab = activeTab ?: return
+        newTab(incognito = tab.incognito, url = url, groupId = tab.groupId)
+    }
 
     /** Contenido en pantalla completa (por ejemplo un video). */
     class Fullscreen(val tabId: Long, val view: View, val exit: () -> Unit)
@@ -251,7 +275,7 @@ class TabManager(
 
     /** Aplica el tamaño de texto a todas las pestañas vivas. */
     fun applyTextZoom() {
-        tabs.forEach { it.session?.setTextZoom(settings.textZoom) }
+        tabs.forEach { it.session?.setTextZoom(zoomFor(it.url)) }
     }
 
     fun exitFullscreen() {
@@ -315,7 +339,63 @@ class TabManager(
         return request.mimeType?.contains("pdf", ignoreCase = true) == true || path.endsWith(".pdf", ignoreCase = true)
     }
 
+    /** Tamaño de texto de una página: el propio del sitio si lo tiene, si no el general. */
+    private fun zoomFor(url: String?): Int = siteSettings.textZoom(SiteSettings.siteOf(url)) ?: settings.textZoom
+
+    /** Aplica a la pestaña los ajustes del [site] (tamaño de texto y versión de escritorio). */
+    private fun applySiteSettings(tab: BrowserTab, site: String?) {
+        tab.session?.setTextZoom(siteSettings.textZoom(site) ?: settings.textZoom)
+        val wanted = siteSettings.desktop(site)
+        if (wanted != null) {
+            tab.desktopBySite = true
+            if (wanted != tab.desktop) {
+                tab.desktop = wanted
+                tab.session?.setDesktopMode(wanted)
+            }
+        } else if (tab.desktopBySite) {
+            // Se salió de un sitio que forzaba el modo: se vuelve al normal.
+            tab.desktopBySite = false
+            if (tab.desktop) {
+                tab.desktop = false
+                tab.session?.setDesktopMode(false)
+            }
+        }
+    }
+
+    // ---- ajustes por sitio (los llama el diálogo de "Ajustes del sitio")
+
+    fun setSiteAdBlockOff(tab: BrowserTab, off: Boolean) {
+        val site = SiteSettings.siteOf(tab.url) ?: return
+        siteSettings.setAdBlockOff(site, off)
+        tab.session?.reload()
+    }
+
+    fun setSitePopups(tab: BrowserTab, allowed: Boolean) {
+        siteSettings.setPopupsAllowed(SiteSettings.siteOf(tab.url) ?: return, allowed)
+    }
+
+    fun setSiteDesktop(tab: BrowserTab, value: Boolean?) {
+        val site = SiteSettings.siteOf(tab.url) ?: return
+        siteSettings.setDesktop(site, value)
+        applySiteSettings(tab, site)
+    }
+
+    fun setSiteZoom(tab: BrowserTab, percent: Int?) {
+        val site = SiteSettings.siteOf(tab.url) ?: return
+        siteSettings.setTextZoom(site, percent)
+        applySiteSettings(tab, site)
+    }
+
+    fun resetSite(tab: BrowserTab) {
+        val site = SiteSettings.siteOf(tab.url) ?: return
+        val hadAdBlockOff = siteSettings.adBlockOff(site)
+        siteSettings.reset(site)
+        applySiteSettings(tab, site)
+        if (hadAdBlockOff) tab.session?.reload()
+    }
+
     fun toggleDesktop(tab: BrowserTab) {
+        tab.desktopBySite = false
         tab.desktop = !tab.desktop
         tab.session?.setDesktopMode(tab.desktop)
     }
@@ -433,6 +513,11 @@ class TabManager(
     private fun ensureSession(tab: BrowserTab) {
         if (tab.session != null) return
         if (tab.url.isBlank() && tab.savedState == null) return // pestaña de inicio: no hace falta WebView
+        val wantedDesktop = siteSettings.desktop(SiteSettings.siteOf(tab.url))
+        if (wantedDesktop != null) {
+            tab.desktop = wantedDesktop
+            tab.desktopBySite = true
+        }
         tab.session = engine.createSession(
             incognito = tab.incognito,
             desktop = tab.desktop,
@@ -441,7 +526,7 @@ class TabManager(
             initialUrl = tab.url.ifBlank { null },
         )
         tab.savedState = null
-        tab.session?.setTextZoom(settings.textZoom)
+        tab.session?.setTextZoom(zoomFor(tab.url))
     }
 
     private fun enforceLimit() {
@@ -481,8 +566,44 @@ class TabManager(
     }
 
     private inner class TabDelegate(private val tab: BrowserTab) : EngineDelegate {
+        private var lastSite: String? = SiteSettings.siteOf(tab.url)
+        private var lastPopupAt = 0L
+        private var lastPopupViaLink = false
+
         override fun onUrlChanged(url: String) {
-            if (url != "about:blank") tab.url = url
+            if (url == "about:blank") return
+            tab.url = url
+            val site = SiteSettings.siteOf(url)
+            if (site != lastSite) {
+                lastSite = site
+                applySiteSettings(tab, site)
+            }
+        }
+
+        private fun popupsFree(): Boolean =
+            !settings.blockPopups || siteSettings.popupsAllowed(SiteSettings.siteOf(tab.url))
+
+        private fun notifyBlocked(url: String?) {
+            if (tab.id != activeId) return
+            popupNotice = PopupNotice(if (tab.incognito) null else SiteSettings.siteOf(tab.url), url)
+        }
+
+        override fun allowPopup(viaLink: Boolean): Boolean {
+            lastPopupViaLink = viaLink
+            if (viaLink || popupsFree()) return true
+            // Una ventana que no viene de un enlace y aparece pegada a otra es casi siempre publicidad.
+            val now = SystemClock.elapsedRealtime()
+            val tooFast = now - lastPopupAt < 4000
+            lastPopupAt = now
+            if (tooFast) notifyBlocked(null)
+            return !tooFast
+        }
+
+        override fun allowPopupTarget(url: String): Boolean {
+            if (lastPopupViaLink || popupsFree()) return true
+            if (!AdBlocker.blocksPopup(url, tab.url)) return true
+            notifyBlocked(url)
+            return false
         }
 
         override fun onTitleChanged(title: String) {

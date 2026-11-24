@@ -100,9 +100,6 @@ class AppSettings(context: Context) {
     var homeDarkness by mutableStateOf(prefs.getFloat("home_darkness", 0.35f).coerceIn(0f, MAX_DARKNESS))
         private set
 
-    var showHomeLogo by mutableStateOf(prefs.getBoolean("show_home_logo", true))
-        private set
-
     var showHomeTitle by mutableStateOf(prefs.getBoolean("show_home_title", true))
         private set
 
@@ -110,6 +107,9 @@ class AppSettings(context: Context) {
         private set
 
     var adBlock by mutableStateOf(prefs.getBoolean("ad_block", true))
+        private set
+
+    var blockPopups by mutableStateOf(prefs.getBoolean("block_popups", true))
         private set
 
     var accent by mutableStateOf(loadEnum("accent", AccentColor.DYNAMIC))
@@ -188,11 +188,6 @@ class AppSettings(context: Context) {
         prefs.edit().putFloat("home_darkness", homeDarkness).apply()
     }
 
-    fun updateShowHomeLogo(value: Boolean) {
-        showHomeLogo = value
-        prefs.edit().putBoolean("show_home_logo", value).apply()
-    }
-
     fun updateShowHomeTitle(value: Boolean) {
         showHomeTitle = value
         prefs.edit().putBoolean("show_home_title", value).apply()
@@ -211,6 +206,11 @@ class AppSettings(context: Context) {
     fun updateShowFrequentSites(value: Boolean) {
         showFrequentSites = value
         prefs.edit().putBoolean("show_frequent_sites", value).apply()
+    }
+
+    fun updateBlockPopups(value: Boolean) {
+        blockPopups = value
+        prefs.edit().putBoolean("block_popups", value).apply()
     }
 
     fun updateAdBlock(value: Boolean) {

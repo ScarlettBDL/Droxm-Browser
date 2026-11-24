@@ -32,6 +32,20 @@ object NativeAdblock {
     @JvmStatic
     external fun nativeCheck(url: String, source: String?, accept: String?, dest: String?): Int
 
+    @JvmStatic
+    external fun nativeCosmeticHost(host: String): String?
+
+    @JvmStatic
+    external fun nativeCosmeticNames(host: String, names: String): String?
+
+    /** CSS que oculta elementos de anuncios para este sitio (reglas del dominio y genéricas complejas). "" si no hay. */
+    fun cosmeticForHost(host: String): String =
+        if (!ready) "" else try { nativeCosmeticHost(host).orEmpty() } catch (e: Throwable) { "" }
+
+    /** CSS para las clases e ids que la página reporta (uno por línea, con `.` o `#` delante). */
+    fun cosmeticForNames(host: String, names: String): String =
+        if (!ready) "" else try { nativeCosmeticNames(host, names).orEmpty() } catch (e: Throwable) { "" }
+
     /** Compila las listas a un bloque binario. Devuelve "bloqueo;excepciones;duplicadas;badfilter;cosméticas;regex;no soportadas" o "ERR:...". */
     fun compile(lists: List<File>, out: File): String {
         if (!available) return "ERR:librería nativa no disponible"

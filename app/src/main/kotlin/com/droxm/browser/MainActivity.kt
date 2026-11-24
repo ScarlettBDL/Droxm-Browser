@@ -13,6 +13,7 @@ import com.droxm.browser.data.FrequentSites
 import com.droxm.browser.data.HomeBackgrounds
 import com.droxm.browser.data.History
 import com.droxm.browser.data.SitePermissions
+import com.droxm.browser.data.SiteSettings
 import com.droxm.browser.settings.AppSettings
 import com.droxm.browser.tabs.TabManager
 import com.droxm.browser.tabs.TabStore
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
         // Tiene que crearse acá (antes de que la actividad arranque) porque registra el pedido de permiso de descargas.
         val downloader = Downloader(this)
         val bridge = SystemBridge(this)
-        manager = TabManager(WebViewEngine(this), settings, TabStore(this), frequentSites, history, downloader, SitePermissions(this), bridge)
+        manager = TabManager(WebViewEngine(this), settings, TabStore(this), frequentSites, history, downloader, SitePermissions(this), SiteSettings(this), bridge)
 
         // Se recuperan las pestañas de la sesión anterior; si hay un link de otra app, va en una pestaña nueva.
         val restored = manager.restore()

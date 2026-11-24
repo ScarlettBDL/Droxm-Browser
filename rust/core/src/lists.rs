@@ -3,6 +3,7 @@
 //! Cada regla recibe una clave de 64 bits calculada sobre su contenido normalizado (patrón, anclas, tipos,
 //! partido, dominios ordenados). Dos reglas con la misma clave son la misma regla, se escriba como se escriba.
 
+use crate::cosmetic::CosmeticBuilder;
 use crate::hash::{hash_lower, Fnv, IdBuild};
 use crate::parser::{parse_line, Party, Skip};
 use crate::store::*;
@@ -25,6 +26,7 @@ pub struct Builder {
     keys: Vec<u64>,
     seen: HashSet<u64, IdBuild>,
     bad: HashSet<u64, IdBuild>,
+    cosmetic: CosmeticBuilder,
     stats: Stats,
 }
 
@@ -41,6 +43,7 @@ impl Builder {
             keys: Vec::new(),
             seen: HashSet::with_hasher(IdBuild::default()),
             bad: HashSet::with_hasher(IdBuild::default()),
+            cosmetic: CosmeticBuilder::default(),
             stats: Stats::default(),
         }
     }
@@ -58,6 +61,7 @@ impl Builder {
             Ok(r) => r,
             Err(Skip::Cosmetic) => {
                 self.stats.cosmetic += 1;
+                self.cosmetic.add(line);
                 return;
             }
             Err(Skip::Regex) => {
@@ -131,7 +135,13 @@ impl Builder {
 
     /// Termina: quita lo anulado por `$badfilter` y devuelve las reglas compactadas con sus estadísticas.
     pub fn finish(self) -> (RuleSet, Stats) {
-        let Builder { set, keys, bad, mut stats, .. } = self;
+        let (set, stats, _) = self.finish_with_cosmetic();
+        (set, stats)
+    }
+
+    /// Igual que [`Builder::finish`], más las reglas cosméticas normalizadas (texto, una por línea).
+    pub fn finish_with_cosmetic(self) -> (RuleSet, Stats, String) {
+        let Builder { set, keys, bad, cosmetic, mut stats, .. } = self;
         let mut out = RuleSet::default();
         for (r, key) in set.rules.iter().zip(&keys) {
             if bad.contains(key) {
@@ -145,7 +155,7 @@ impl Builder {
             }
             out.copy_rule_from(&set, r);
         }
-        (out, stats)
+        (out, stats, cosmetic.into_text())
     }
 }
 

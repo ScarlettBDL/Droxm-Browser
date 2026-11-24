@@ -54,6 +54,12 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 - **Cámara, micrófono y ubicación:** la página pide permiso y Droxm te pregunta (Permitir /
   Bloquear, con "Recordar mi decisión"; en incógnito nunca se recuerda). Las decisiones se
   borran desde Ajustes.
+- **Ventanas emergentes:** las que se abren solas, pegadas una a otra o que van a
+  anunciantes se bloquean y aparece un aviso con **"Permitir"** para ese sitio. Los enlaces
+  que tocás (`target="_blank"`) siguen abriendo pestañas nuevas.
+- **Ajustes por sitio** (menú ⋮ → *Ajustes del sitio*): apagar el bloqueador de anuncios,
+  permitir ventanas emergentes, forzar versión de escritorio o móvil y elegir el tamaño del
+  texto solo para ese sitio. "Restablecer" lo deja como estaba. No se guardan desde incógnito.
 - **Videos en pantalla completa**, con rotación libre.
 - **Subir archivos y fotos** desde los botones de las páginas.
 - **Visor de PDF propio:** los PDF se abren dentro de Droxm (páginas dibujadas a medida que
@@ -84,7 +90,7 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
 
 ### Pantalla de inicio
 
-- **Tu logo** arriba del título (se puede ocultar) y como ícono de la app.
+- **Tu logo** como ícono de la app (la pantalla de inicio queda limpia, sin logo).
 - **Fondo de naturaleza por defecto:** fotos de paisajes de Wikimedia Commons (imágenes
   destacadas, con licencia libre) que se descargan solas con Wi-Fi y cambian cada vez que
   abrís el navegador. Si no hay conexión, se ve un degradado.
@@ -119,6 +125,10 @@ propio es toda la experiencia: pestañas, barra, ajustes y pantalla de inicio.
   **EasyList y EasyPrivacy** con un motor escrito en **Rust** (ver más abajo), así que
   filtra por dominio, ruta, tipo de recurso y si el pedido es de un tercero. Si el motor
   nativo no estuviera disponible, usa una lista corta de más de 100 redes de publicidad.
+- **Ocultamiento de elementos (`##`):** además de bloquear pedidos, Droxm esconde los
+  huecos y carteles de anuncios con las reglas cosméticas de EasyList. El motor en Rust arma
+  el CSS; las reglas genéricas solo se piden para las clases e ids que la página realmente usa,
+  así no se carga una hoja de estilos gigante en cada sitio.
 - Las listas se descargan solas desde `easylist.to` (con Wi-Fi, cada 7 días) o con
   *Ajustes → Actualizar ahora*. Es la única conexión que hace la app además de tu
   navegación.
@@ -207,6 +217,8 @@ perder los ajustes.
 | Accesos del inicio | Más visitados / Favoritos | Más visitados |
 | Buscador | DuckDuckGo / Google / Bing / Brave / Personalizado | DuckDuckGo |
 | Bloquear anuncios | Sí / No | Sí |
+| Bloquear ventanas emergentes | Sí / No | Sí |
+| Ajustes por sitio | Borrar todos | — |
 | Listas de filtros | Actualizar ahora | Automático con Wi-Fi |
 | Pestañas activas a la vez | 1–6 | 3 |
 
@@ -263,8 +275,8 @@ La interfaz está pensada en español y todavía no tiene otros idiomas.
 - Las fotos de naturaleza dependen de la API pública de Wikimedia Commons; si cambia o no hay
   conexión, el inicio queda con el degradado.
 - El bloqueador solo filtra pedidos de red: no soporta reglas con expresiones regulares ni
-  `$redirect`/`$csp`, y los selectores de ocultamiento (`##`) de EasyList no se aplican
-  (solo un ocultamiento básico de anuncios de Google). El tipo de recurso se deduce de las
+  `$redirect`/`$csp`. El ocultamiento cosmético no soporta los filtros procedurales de
+  uBlock (`:has-text`, `+js`, `:xpath`…), que se descartan. El tipo de recurso se deduce de las
   cabeceras y la extensión, porque WebView no lo informa.
 - Las miniaturas del selector de pestañas solo viven en memoria: tras reiniciar la app se
   ven las iniciales hasta volver a entrar a cada pestaña.
@@ -286,7 +298,7 @@ falta el SDK de Android local).
   implementación.
 - `rust/core/` — núcleo del bloqueador, sin dependencias: parser de listas, índices por
   token y dominio, excepciones (`@@`, `$important`, `$badfilter`), clasificación de
-  recursos y deduplicación. `cargo test` y `cargo run --release --example bench` funcionan
+  recursos, deduplicación y reglas cosméticas. `cargo test` y `cargo run --release --example bench` funcionan
   en cualquier PC.
 - `rust/jni/` — puente JNI. Una sola llamada nativa por pedido; las listas grandes pasan
   por archivos, no por la JVM.

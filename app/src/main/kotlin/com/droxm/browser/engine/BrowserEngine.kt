@@ -53,6 +53,15 @@ interface EngineDelegate {
 
     fun onHideFullscreen()
 
+    /**
+     * Una página quiere abrir una ventana emergente. [viaLink] es true si el toque fue sobre un enlace (target="_blank").
+     * Devuelve false para bloquearla.
+     */
+    fun allowPopup(viaLink: Boolean): Boolean
+
+    /** La ventana emergente ya dijo a dónde va. Devuelve false para descartarla (por ejemplo si es de un anunciante). */
+    fun allowPopupTarget(url: String): Boolean
+
     /** La página quiere que se elija un archivo. Hay que abrir [intent] y devolver el resultado. */
     fun onFileChooser(intent: Intent, onResult: (resultCode: Int, data: Intent?) -> Unit)
 }
