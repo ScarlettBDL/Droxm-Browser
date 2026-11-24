@@ -101,6 +101,7 @@ class TabManager(
         private set
 
     private var scrollAccum = 0
+    private var lastBarToggle = 0L
 
     /** PDF que se está viendo en el visor propio. */
     var pdf by mutableStateOf<DownloadRequest?>(null)
@@ -669,20 +670,35 @@ class TabManager(
         }
 
         override fun onScrollChanged(y: Int, dy: Int) {
-            if (tab.id != activeId || !settings.hideBarOnScroll) return
-            if (y <= 0) {
-                barHidden = false
+            if (tab.id != activeId || !settings.hideBarOnScroll || fullscreen != null) return
+            val now = SystemClock.elapsedRealtime()
+            // Al esconder o mostrar la barra cambia el alto de la página y el WebView dispara scrolls que no
+            // hizo el dedo: se ignoran un rato para que no se realimente (la barra "temblaba").
+            if (now - lastBarToggle < 600) {
                 scrollAccum = 0
                 return
             }
-            // Se acumula el movimiento en una dirección; cambiar de dirección lo reinicia.
-            if ((dy > 0) != (scrollAccum > 0)) scrollAccum = 0
-            scrollAccum += dy
-            if (scrollAccum > 60) {
-                barHidden = true
+            if (y <= 0) {
+                if (barHidden) {
+                    barHidden = false
+                    lastBarToggle = now
+                }
                 scrollAccum = 0
-            } else if (scrollAccum < -30) {
+                return
+            }
+            // Se acumula el movimiento en una dirección; un cambio chico de dirección no lo reinicia,
+            // uno grande sí. Mostrar la barra pide un gesto claro hacia arriba.
+            if (dy != 0 && (dy > 0) != (scrollAccum > 0) && kotlin.math.abs(dy) > 12) scrollAccum = 0
+            scrollAccum += dy
+            if (scrollAccum > 120 && !barHidden) {
+                barHidden = true
+                lastBarToggle = now
+                scrollAccum = 0
+            } else if (scrollAccum < -160 && barHidden) {
                 barHidden = false
+                lastBarToggle = now
+                scrollAccum = 0
+            } else if (scrollAccum > 120 || scrollAccum < -160) {
                 scrollAccum = 0
             }
         }

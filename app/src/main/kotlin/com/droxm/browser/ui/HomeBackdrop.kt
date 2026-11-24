@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 
 /** Foto (o GIF/WebP animado en Android 9+) a pantalla completa, recortada al centro. */
 @Composable
-fun ImageBackdrop(file: File, modifier: Modifier = Modifier) {
+fun ImageBackdrop(file: File, darkness: Float, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val drawable by produceState<Drawable?>(initialValue = null, key1 = file) {
         value = withContext(Dispatchers.IO) { BackgroundFiles.decodeImage(context, file) }
@@ -34,6 +34,14 @@ fun ImageBackdrop(file: File, modifier: Modifier = Modifier) {
         factory = { ctx -> ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
         update = { imageView ->
             imageView.setImageDrawable(drawable)
+            // La oscuridad se aplica a la propia imagen: una capa de Compose encima de una vista nativa
+            // puede quedar tapada al cambiar el tamaño (por ejemplo al abrir el teclado).
+            imageView.setColorFilter(
+                android.graphics.PorterDuffColorFilter(
+                    android.graphics.Color.argb((darkness.coerceIn(0f, 1f) * 255).toInt(), 0, 0, 0),
+                    android.graphics.PorterDuff.Mode.SRC_ATOP,
+                ),
+            )
             val d = drawable
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && d is AnimatedImageDrawable) d.start()
         },
@@ -48,10 +56,13 @@ fun ImageBackdrop(file: File, modifier: Modifier = Modifier) {
 
 /** Video en loop, sin sonido, a pantalla completa y recortado al centro. Se libera al salir de la pantalla de inicio. */
 @Composable
-fun VideoBackdrop(file: File, modifier: Modifier = Modifier) {
+fun VideoBackdrop(file: File, darkness: Float, modifier: Modifier = Modifier) {
     AndroidView(
         factory = { ctx -> LoopingVideoView(ctx) },
-        update = { view -> view.setSource(file.absolutePath) },
+        update = { view ->
+            view.setDarkness(darkness)
+            view.setSource(file.absolutePath)
+        },
         onRelease = { view -> view.release() },
         modifier = modifier,
     )
@@ -68,6 +79,14 @@ private class LoopingVideoView(context: Context) : TextureView(context), Texture
 
     init {
         surfaceTextureListener = this
+    }
+
+    fun setDarkness(darkness: Float) {
+        val k = 1f - darkness.coerceIn(0f, 1f)
+        val paint = android.graphics.Paint().apply {
+            colorFilter = android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setScale(k, k, k, 1f) })
+        }
+        setLayerType(LAYER_TYPE_HARDWARE, paint)
     }
 
     fun setSource(newPath: String) {

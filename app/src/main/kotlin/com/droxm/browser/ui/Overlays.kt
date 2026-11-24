@@ -35,33 +35,35 @@ import com.droxm.browser.tabs.TabManager
 fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
     val activity = LocalContext.current as? Activity
 
+    // La vista de pantalla completa se pone directo en el contenido de la actividad (como hacen los navegadores),
+    // fuera del árbol de Compose: así los cambios de tamaño o de recomposición no la tocan mientras el video corre.
     DisposableEffect(view) {
+        val content = activity?.findViewById<ViewGroup>(android.R.id.content)
+        val holder = FrameLayout(view.context).apply {
+            setBackgroundColor(AndroidColor.BLACK)
+            isClickable = true
+            keepScreenOn = true
+        }
+        if (content != null) {
+            (view.parent as? ViewGroup)?.removeView(view)
+            holder.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            content.addView(holder, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller?.hide(WindowInsetsCompat.Type.systemBars())
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         onDispose {
+            if (content != null) {
+                content.removeView(holder)
+                holder.removeAllViews()
+            }
             controller?.show(WindowInsetsCompat.Type.systemBars())
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 
-    AndroidView(
-        factory = { context -> FrameLayout(context).apply { setBackgroundColor(AndroidColor.BLACK) } },
-        update = { container ->
-            if (view.parent !== container) {
-                (view.parent as? ViewGroup)?.removeView(view)
-                container.removeAllViews()
-                container.addView(
-                    view,
-                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
-                )
-            }
-        },
-        onRelease = { container -> container.removeAllViews() },
-        modifier = modifier,
-    )
 }
 
 /** "Este sitio quiere usar la cámara…": Permitir o Bloquear, con la opción de recordar la decisión. */

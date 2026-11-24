@@ -97,16 +97,10 @@ private fun NormalHome(
     ) {
         if (bgFile != null) {
             if (bg?.isVideo == true) {
-                VideoBackdrop(bgFile, Modifier.fillMaxSize())
+                VideoBackdrop(bgFile, settings.homeDarkness, Modifier.fillMaxSize())
             } else {
-                ImageBackdrop(bgFile, Modifier.fillMaxSize())
+                ImageBackdrop(bgFile, settings.homeDarkness, Modifier.fillMaxSize())
             }
-            // Capa negra encima: es lo que controla el slider de "Oscuridad".
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = settings.homeDarkness)),
-            )
         }
 
         val fromBookmarks = settings.homeSource == HomeSource.BOOKMARKS
