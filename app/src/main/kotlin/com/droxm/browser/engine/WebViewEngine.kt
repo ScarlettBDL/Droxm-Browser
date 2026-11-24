@@ -27,6 +27,13 @@ import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+
+/** Contadores para el informe de diagnóstico. */
+object EngineStats {
+    @Volatile var popupsAlive = 0
+    @Volatile var popupsCreated = 0
+}
 
 private const val INCOGNITO_PROFILE = "droxm_incognito"
 
@@ -257,12 +264,19 @@ private class WebViewSession(
             val viaLink = view.hitTestResult.type.let {
                 it == WebView.HitTestResult.SRC_ANCHOR_TYPE || it == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
             }
+            // Una sola ventana emergente a la vez: cada WebView extra cuesta mucha memoria.
+            if (EngineStats.popupsAlive > 0) return false
             if (!isUserGesture || !delegate.allowPopup(viaLink)) return false
             val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
 
             val popup = WebView(view.context)
+            EngineStats.popupsAlive++
+            EngineStats.popupsCreated++
             if (isolated) WebViewCompat.setProfile(popup, INCOGNITO_PROFILE)
             popup.settings.javaScriptEnabled = true
+            // La ventana solo sirve para saber a dónde va: no se cargan imágenes ni nada más.
+            popup.settings.blockNetworkImage = true
+            popup.settings.loadsImagesAutomatically = false
 
             var done = false
             fun finish(url: String) {
@@ -276,10 +290,18 @@ private class WebViewSession(
                 popup.post {
                     popup.stopLoading()
                     popup.destroy()
+                    EngineStats.popupsAlive--
                 }
             }
 
             popup.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(v: WebView?, request: WebResourceRequest?): WebResourceResponse? =
+                    if (request != null && !request.isForMainFrame) {
+                        WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                    } else {
+                        null
+                    }
+
                 override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url?.toString() ?: return false
                     if (url == "about:blank") return false
@@ -295,9 +317,11 @@ private class WebViewSession(
             popup.postDelayed({
                 if (!done) {
                     done = true
+                    popup.stopLoading()
                     popup.destroy()
+                    EngineStats.popupsAlive--
                 }
-            }, 10_000)
+            }, 5_000)
 
             transport.webView = popup
             resultMsg.sendToTarget()

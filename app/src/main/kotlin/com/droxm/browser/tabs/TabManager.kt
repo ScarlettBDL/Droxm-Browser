@@ -75,6 +75,14 @@ class TabManager(
     var popupNotice by mutableStateOf<PopupNotice?>(null)
         private set
 
+    /** Resumen del estado para el informe de diagnóstico. */
+    fun debugState(): String {
+        val a = activeTab
+        return "pestañas=${tabs.size} vivas=${tabs.count { it.session != null }} pantallaCompleta=${fullscreen != null} " +
+            "popups(vivos/creados)=${com.droxm.browser.engine.EngineStats.popupsAlive}/${com.droxm.browser.engine.EngineStats.popupsCreated} " +
+            "sitio=${SiteSettings.siteOf(a?.url) ?: "-"} cargando=${a?.isLoading}"
+    }
+
     fun dismissPopupNotice() {
         popupNotice = null
     }
@@ -591,6 +599,7 @@ class TabManager(
 
         override fun allowPopup(viaLink: Boolean): Boolean {
             lastPopupViaLink = viaLink
+            if (fullscreen != null) return false // tocar la pantalla de un video no debe abrir nada
             if (viaLink || popupsFree()) return true
             // Una ventana que no viene de un enlace y aparece pegada a otra es casi siempre publicidad.
             val now = SystemClock.elapsedRealtime()

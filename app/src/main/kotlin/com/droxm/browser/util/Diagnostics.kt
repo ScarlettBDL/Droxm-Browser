@@ -21,6 +21,13 @@ object Diagnostics {
 
     fun install(context: Context) {
         val app = context.applicationContext
+        // El registro de memoria de la sesión anterior se guarda aparte: es lo que sirve si esa sesión terminó mal.
+        try {
+            val cur = File(app.filesDir, "mem_log.txt")
+            if (cur.exists() && cur.length() > 0) cur.copyTo(File(app.filesDir, "mem_prev.txt"), overwrite = true)
+            cur.delete()
+        } catch (_: Throwable) {
+        }
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             try {
@@ -35,6 +42,27 @@ object Diagnostics {
         }
     }
 
+    private val samples = ArrayDeque<String>()
+    private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.US)
+
+    /** Anota el uso de memoria (se llama cada pocos segundos). Se guardan las últimas 40 muestras para el informe. */
+    fun sample(context: Context, extra: String) {
+        try {
+            val mi = android.os.Debug.MemoryInfo()
+            android.os.Debug.getMemoryInfo(mi)
+            val s = mi.memoryStats
+            fun mb(key: String) = (s[key]?.toLongOrNull() ?: 0L) / 1024
+            val line = "${timeFmt.format(Date())} total=${mb("summary.total-pss")}MB java=${mb("summary.java-heap")} " +
+                "nativo=${mb("summary.native-heap")} gráficos=${mb("summary.graphics")} | $extra"
+            synchronized(samples) {
+                samples.addLast(line)
+                while (samples.size > 40) samples.removeFirst()
+                File(context.filesDir, "mem_log.txt").writeText(samples.joinToString("\n"))
+            }
+        } catch (_: Throwable) {
+        }
+    }
+
     fun report(context: Context): String {
         val out = StringBuilder()
         out.append("Droxm Browser — ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
@@ -44,6 +72,10 @@ object Diagnostics {
             am.getMemoryInfo(mi)
             out.append("RAM total: ${mi.totalMem shr 20} MB, libre: ${mi.availMem shr 20} MB\n")
         }
+        val prev = File(context.filesDir, "mem_prev.txt")
+        if (prev.exists()) out.append("\n== Memoria de la sesión anterior (cada ~4 s) ==\n").append(prev.readText()).append('\n')
+        val log = File(context.filesDir, "mem_log.txt")
+        if (log.exists()) out.append("\n== Memoria de esta sesión ==\n").append(log.readText()).append('\n')
         val crash = File(context.filesDir, FILE)
         if (crash.exists()) out.append("\n== Último error de la app ==\n").append(crash.readText()).append('\n')
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && am != null) {

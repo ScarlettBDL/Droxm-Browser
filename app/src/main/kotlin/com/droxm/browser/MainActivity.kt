@@ -74,7 +74,16 @@ class MainActivity : ComponentActivity() {
         viewUrl(intent)?.let { manager.newTab(incognito = false, url = it) }
     }
 
+    private val sampler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val sampleTask = object : Runnable {
+        override fun run() {
+            com.droxm.browser.util.Diagnostics.sample(this@MainActivity, manager.debugState())
+            sampler.postDelayed(this, 4000)
+        }
+    }
+
     override fun onPause() {
+        sampler.removeCallbacks(sampleTask)
         manager.onHostPause()
         history.flush()
         super.onPause()
@@ -83,6 +92,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         manager.onHostResume()
+        sampler.postDelayed(sampleTask, 1000)
     }
 
     // Poca memoria o app en segundo plano: se duermen las pestañas que no se están viendo.
