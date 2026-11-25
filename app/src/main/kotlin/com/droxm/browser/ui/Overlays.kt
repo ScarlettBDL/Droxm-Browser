@@ -58,7 +58,7 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller?.hide(WindowInsetsCompat.Type.systemBars())
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        if (com.droxm.browser.engine.DebugFlags.fsMode != 1) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         onDispose {
             appRoot?.visibility = appRootVisibility
             if (content != null) {
@@ -100,4 +100,21 @@ fun PermissionDialog(prompt: TabManager.PermissionPrompt, onAnswer: (allow: Bool
         confirmButton = { TextButton(onClick = { onAnswer(true, keep) }) { Text("Permitir") } },
         dismissButton = { TextButton(onClick = { onAnswer(false, keep) }) { Text("Bloquear") } },
     )
+}
+
+/** Modo cine: sin barras del sistema y con la pantalla libre para girar, mientras esté activo. */
+@Composable
+fun CinemaEffect() {
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(Unit) {
+        val window = activity?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+        controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
 }

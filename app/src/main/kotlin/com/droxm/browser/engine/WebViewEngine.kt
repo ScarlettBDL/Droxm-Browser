@@ -228,6 +228,12 @@ private class WebViewSession(
         // Pantalla completa de videos.
         override fun onShowCustomView(view: View?, callback: WebChromeClient.CustomViewCallback?) {
             if (view == null || callback == null) return
+            if (DebugFlags.fsMode == 2) {
+                // Modo cine: no se usa la pantalla completa del WebView, solo se ocultan las barras y se gira.
+                callback.onCustomViewHidden()
+                delegate.onCinemaToggle()
+                return
+            }
             delegate.onShowFullscreen(view) { callback.onCustomViewHidden() }
         }
 

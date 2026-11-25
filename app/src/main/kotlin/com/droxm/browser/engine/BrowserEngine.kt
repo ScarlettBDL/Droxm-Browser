@@ -53,6 +53,9 @@ interface EngineDelegate {
 
     fun onHideFullscreen()
 
+    /** Modo cine: la página pidió pantalla completa y se la resuelve la propia app (activa o desactiva). */
+    fun onCinemaToggle()
+
     /**
      * Una página quiere abrir una ventana emergente. [viaLink] es true si el toque fue sobre un enlace (target="_blank").
      * Devuelve false para bloquearla.

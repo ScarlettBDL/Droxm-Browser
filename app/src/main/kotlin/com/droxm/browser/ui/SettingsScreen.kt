@@ -342,6 +342,15 @@ fun SettingsScreen(
                     }
                 }
 
+                ChoiceSetting(
+                    title = "Pantalla completa de videos",
+                    description = "Si la app se cierra con videos en pantalla completa, probá las otras: \"Sin girar\" no rota la pantalla; \"Modo cine\" no usa la pantalla completa del WebView (el botón de pantalla completa de la página oculta las barras y gira el celular; se sale con Atrás).",
+                    options = listOf(0, 1, 2),
+                    selected = com.droxm.browser.engine.DebugFlags.fsMode,
+                    label = { when (it) { 0 -> "Normal"; 1 -> "Sin girar"; else -> "Modo cine" } },
+                    onSelect = { com.droxm.browser.engine.DebugFlags.setFsMode(it) },
+                )
+
                 Column {
                     Text("Pruebas de diagnóstico", style = MaterialTheme.typography.bodyLarge)
                     Text(

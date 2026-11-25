@@ -69,6 +69,9 @@ class TabManager(
     var permissionPrompt by mutableStateOf<PermissionPrompt?>(null)
         private set
 
+    /** Modo cine activo: la interfaz esconde las barras y gira la pantalla. */
+    var cinema by mutableStateOf(false)
+
     /** Se bloqueó una ventana emergente: la interfaz muestra un aviso mientras no sea null. [site] es null en incógnito (no se puede recordar). */
     class PopupNotice(val site: String?, val url: String?)
 
@@ -179,6 +182,7 @@ class TabManager(
 
     fun select(id: Long) {
         val tab = tabs.firstOrNull { it.id == id } ?: return
+        cinema = false
         if (fullscreen?.tabId != id) exitFullscreen()
         val previous = activeTab
         if (previous != null && previous !== tab) {
@@ -729,6 +733,10 @@ class TabManager(
                 discardInactive()
                 tab.session?.view?.visibility = View.GONE
             }
+        }
+
+        override fun onCinemaToggle() {
+            if (tab.id == activeId) cinema = !cinema
         }
 
         override fun onHideFullscreen() {

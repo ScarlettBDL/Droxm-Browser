@@ -122,8 +122,9 @@ fun BrowserScreen(
         }
     }
 
-    BackHandler(enabled = manager.fullscreen != null || manager.pdf != null || library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
+    BackHandler(enabled = manager.cinema || manager.fullscreen != null || manager.pdf != null || library != null || showSettings || showSwitcher || finding || tab?.canGoBack == true) {
         when {
+            manager.cinema -> manager.cinema = false
             manager.fullscreen != null -> manager.exitFullscreen()
             manager.pdf != null -> manager.closePdf()
             library != null -> library = null
@@ -172,7 +173,7 @@ fun BrowserScreen(
 
                 val onTop = settings.barPosition == BarPosition.TOP
                 // Con "ocultar al deslizar", la barra se esconde sola mientras se baja por la página.
-                val barVisible = !(settings.hideBarOnScroll && manager.barHidden) || tab.isHome
+                val barVisible = !manager.cinema && (!(settings.hideBarOnScroll && manager.barHidden) || tab.isHome)
                 val animatedBar: @Composable () -> Unit = {
                     AnimatedVisibility(
                         visible = barVisible,
@@ -287,6 +288,8 @@ fun BrowserScreen(
                 }
             }
         }
+
+        if (manager.cinema) CinemaEffect()
 
         manager.fullscreen?.let { FullscreenOverlay(it.view, Modifier.fillMaxSize()) }
     }

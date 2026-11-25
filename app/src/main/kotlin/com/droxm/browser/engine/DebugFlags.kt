@@ -3,6 +3,7 @@ package com.droxm.browser.engine
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -29,6 +30,15 @@ object DebugFlags {
     var keepVisible by mutableStateOf(false)
         private set
 
+    /** Pantalla completa de videos: 0 = la del sistema, 1 = la del sistema sin girar la pantalla, 2 = modo cine (propio, sin pantalla completa del WebView). */
+    var fsMode by mutableIntStateOf(0)
+        private set
+
+    fun setFsMode(value: Int) {
+        fsMode = value
+        prefs?.edit()?.putInt("fsMode", value)?.apply()
+    }
+
     fun init(context: Context) {
         val p = context.getSharedPreferences("droxm_debug", Context.MODE_PRIVATE)
         prefs = p
@@ -36,6 +46,7 @@ object DebugFlags {
         noCosmetic = p.getBoolean("noCosmetic", false)
         defaultUa = p.getBoolean("defaultUa", false)
         keepVisible = p.getBoolean("keepVisible", false)
+        fsMode = p.getInt("fsMode", 0)
     }
 
     fun set(name: String, value: Boolean) {
@@ -48,5 +59,5 @@ object DebugFlags {
         prefs?.edit()?.putBoolean(name, value)?.apply()
     }
 
-    fun summary(): String = "pruebas: sinIntercept=$noIntercept sinCosmético=$noCosmetic uaOriginal=$defaultUa noEsconder=$keepVisible"
+    fun summary(): String = "pruebas: sinIntercept=$noIntercept sinCosmético=$noCosmetic uaOriginal=$defaultUa noEsconder=$keepVisible modoFS=$fsMode"
 }
