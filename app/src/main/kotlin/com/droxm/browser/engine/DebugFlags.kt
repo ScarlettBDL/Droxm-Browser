@@ -34,7 +34,7 @@ object DebugFlags {
     var fsMode by mutableIntStateOf(0)
         private set
 
-    fun setFsMode(value: Int) {
+    fun chooseFsMode(value: Int) {
         fsMode = value
         prefs?.edit()?.putInt("fsMode", value)?.apply()
     }

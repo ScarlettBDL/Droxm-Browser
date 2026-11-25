@@ -348,7 +348,7 @@ fun SettingsScreen(
                     options = listOf(0, 1, 2),
                     selected = com.droxm.browser.engine.DebugFlags.fsMode,
                     label = { when (it) { 0 -> "Normal"; 1 -> "Sin girar"; else -> "Modo cine" } },
-                    onSelect = { com.droxm.browser.engine.DebugFlags.setFsMode(it) },
+                    onSelect = { com.droxm.browser.engine.DebugFlags.chooseFsMode(it) },
                 )
 
                 Column {
