@@ -3,6 +3,7 @@ package com.droxm.browser.ui
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
+import android.view.OrientationEventListener
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -58,8 +59,45 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller?.hide(WindowInsetsCompat.Type.systemBars())
-        if (com.droxm.browser.engine.DebugFlags.fsMode != 1) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        // La ventana se queda SIEMPRE en vertical: girar de verdad la ventana con un video en el WebView hace que
+        // la memoria gráfica crezca sin parar en algunos teléfonos. En su lugar, si se gira el celular, se gira la
+        // vista del video "a mano" (misma imagen, pero la ventana no cambia de orientación).
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        var applied = 0f
+        val listener = object : OrientationEventListener(view.context) {
+            override fun onOrientationChanged(o: Int) {
+                if (o == ORIENTATION_UNKNOWN || content == null) return
+                // 90 = el celular quedó con su lado izquierdo arriba (girado en sentido horario).
+                val target = when {
+                    o in 60..120 -> -90f
+                    o in 240..300 -> 90f
+                    o <= 30 || o >= 330 -> 0f
+                    else -> return
+                }
+                if (target == applied) return
+                applied = target
+                content.post {
+                    val w = content.width
+                    val h = content.height
+                    if (w <= 0 || h <= 0) return@post
+                    if (target == 0f) {
+                        holder.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        holder.translationX = 0f
+                        holder.translationY = 0f
+                        holder.rotation = 0f
+                    } else {
+                        holder.layoutParams = FrameLayout.LayoutParams(h, w)
+                        holder.translationX = (w - h) / 2f
+                        holder.translationY = (h - w) / 2f
+                        holder.rotation = target
+                    }
+                }
+            }
+        }
+        if (com.droxm.browser.engine.DebugFlags.fsMode != 1 && listener.canDetectOrientation()) listener.enable()
         onDispose {
+            listener.disable()
+            holder.rotation = 0f
             appRoot?.visibility = appRootVisibility
             if (content != null) {
                 content.removeView(holder)
