@@ -83,9 +83,11 @@ class MainActivity : ComponentActivity() {
             // algunos teléfonos), se sale antes de que Android cierre toda la app y se pierdan las pestañas.
             if (manager.fullscreen != null && graphicsMb > 700) {
                 manager.exitFullscreen()
+                // La memoria gráfica queda ocupada aunque se salga: se recrea el WebView para devolverla.
+                sampler.postDelayed({ manager.recycleActive() }, 500)
                 android.widget.Toast.makeText(
                     this@MainActivity,
-                    "Se salió de pantalla completa: usaba demasiada memoria",
+                    "Se salió de pantalla completa y se recargó la página: usaba demasiada memoria",
                     android.widget.Toast.LENGTH_LONG,
                 ).show()
             }

@@ -78,6 +78,18 @@ class TabManager(
     var popupNotice by mutableStateOf<PopupNotice?>(null)
         private set
 
+    /**
+     * Destruye y vuelve a crear el WebView de la pestaña activa (conserva su historial y posición).
+     * Es la única forma de devolver la memoria gráfica que el WebView dejó ocupada tras una fuga.
+     */
+    fun recycleActive() {
+        val tab = activeTab ?: return
+        if (tab.session == null || fullscreen != null) return
+        discard(tab)
+        ensureSession(tab)
+        tab.session?.onResume()
+    }
+
     /** Resumen del estado para el informe de diagnóstico. */
     fun debugState(): String {
         val a = activeTab
