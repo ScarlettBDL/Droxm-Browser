@@ -343,6 +343,39 @@ fun SettingsScreen(
                 }
 
                 Column {
+                    Text("Pruebas de diagnóstico", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Para descartar causas de un problema. Normalmente van todas apagadas. Las marcadas con * se aplican a pestañas nuevas.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                SwitchSetting(
+                    title = "Sin interceptar pedidos *",
+                    description = "Desactiva el bloqueo de anuncios por pedidos en pestañas nuevas.",
+                    checked = com.droxm.browser.engine.DebugFlags.noIntercept,
+                    onChange = { com.droxm.browser.engine.DebugFlags.set("noIntercept", it) },
+                )
+                SwitchSetting(
+                    title = "Sin filtros cosméticos *",
+                    description = "No instala el puente de JavaScript ni el script de ocultamiento.",
+                    checked = com.droxm.browser.engine.DebugFlags.noCosmetic,
+                    onChange = { com.droxm.browser.engine.DebugFlags.set("noCosmetic", it) },
+                )
+                SwitchSetting(
+                    title = "Identificación original del WebView *",
+                    description = "No se hace pasar por un Chrome común.",
+                    checked = com.droxm.browser.engine.DebugFlags.defaultUa,
+                    onChange = { com.droxm.browser.engine.DebugFlags.set("defaultUa", it) },
+                )
+                SwitchSetting(
+                    title = "No esconder nada en pantalla completa",
+                    description = "Deja la interfaz y la página visibles detrás del video.",
+                    checked = com.droxm.browser.engine.DebugFlags.keepVisible,
+                    onChange = { com.droxm.browser.engine.DebugFlags.set("keepVisible", it) },
+                )
+
+                Column {
                     val ctx = LocalContext.current
                     Text("Diagnóstico", style = MaterialTheme.typography.bodyLarge)
                     Text(

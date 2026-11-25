@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.droxm.browser.util.Diagnostics.install(this)
+        com.droxm.browser.engine.DebugFlags.init(this)
         enableEdgeToEdge()
 
         settings = AppSettings(this)

@@ -80,7 +80,7 @@ class TabManager(
         val a = activeTab
         return "pestañas=${tabs.size} vivas=${tabs.count { it.session != null }} pantallaCompleta=${fullscreen != null} " +
             "popups(vivos/creados)=${com.droxm.browser.engine.EngineStats.popupsAlive}/${com.droxm.browser.engine.EngineStats.popupsCreated} " +
-            "sitio=${SiteSettings.siteOf(a?.url) ?: "-"} cargando=${a?.isLoading}" +
+            "sitio=${SiteSettings.siteOf(a?.url) ?: "-"} cargando=${a?.isLoading} ${com.droxm.browser.engine.DebugFlags.summary()}" +
             (fullscreen?.view?.let { v ->
                 " vistaFS=${v.javaClass.simpleName} ${v.width}x${v.height} aceleradaHW=${v.isHardwareAccelerated} " +
                     "adjunta=${v.isAttachedToWindow} capa=${v.layerType} visible=${v.visibility}"
@@ -725,8 +725,10 @@ class TabManager(
             fullscreen = Fullscreen(tab.id, view, onExit)
             // Con el video en pantalla completa se liberan las otras pestañas y la página de atrás sale del layout
             // (GONE): así, al girar el celular, no se vuelve a calcular ni dibujar la página al nuevo tamaño.
-            discardInactive()
-            tab.session?.view?.visibility = View.GONE
+            if (!com.droxm.browser.engine.DebugFlags.keepVisible) {
+                discardInactive()
+                tab.session?.view?.visibility = View.GONE
+            }
         }
 
         override fun onHideFullscreen() {

@@ -46,7 +46,7 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         }
         // Como otros navegadores, se esconde toda la interfaz mientras dura el video: no se dibuja ni se recalcula
         // nada por detrás en cada cuadro, y al girar la pantalla no hay nada que volver a medir.
-        val appRoot = content?.getChildAt(0)
+        val appRoot = if (com.droxm.browser.engine.DebugFlags.keepVisible) null else content?.getChildAt(0)
         val appRootVisibility = appRoot?.visibility ?: View.VISIBLE
         appRoot?.visibility = View.GONE
         if (content != null) {

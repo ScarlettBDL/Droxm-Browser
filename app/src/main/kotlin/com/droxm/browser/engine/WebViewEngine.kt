@@ -104,10 +104,13 @@ private class WebViewSession(
     @Volatile
     private var pageUrl: String? = null
 
-    private val client = object : WebViewClient() {
+    private open inner class BaseClient : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             delegate.onLoadingChanged(true)
-            if (url != null) delegate.onUrlChanged(url)
+            if (url != null) {
+                pageUrl = url
+                delegate.onUrlChanged(url)
+            }
             publishNavigation(view)
         }
 
@@ -120,27 +123,6 @@ private class WebViewSession(
                 // Respaldo del script de inicio de documento (es idempotente).
                 if (NativeAdblock.ready) view?.evaluateJavascript(CosmeticBridge.SCRIPT, null)
             }
-        }
-
-        // Anuncios de dominios conocidos: respuesta vacía al instante, sin pasar por la red (y sin pantalla de error).
-        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-            if (request == null) return null
-            val uri = request.url
-            // Esta función corre en un hilo de red: no se puede llamar a WebView.getUrl(). Se recuerda la página
-            // principal desde acá, que es lo primero que se pide al navegar.
-            if (request.isForMainFrame) {
-                pageUrl = uri.toString()
-                return null
-            }
-            val headers = request.requestHeaders
-            return AdBlocker.intercept(
-                url = uri.toString(),
-                host = uri.host,
-                path = uri.path ?: "",
-                source = pageUrl,
-                accept = headers?.get("Accept"),
-                dest = headers?.get("Sec-Fetch-Dest"),
-            )
         }
 
         // Si algo que NO es la página principal falla (un anuncio bloqueado por DNS, por ejemplo), el WebView dibuja
@@ -171,6 +153,31 @@ private class WebViewSession(
             return shouldHandleExternally(webView.context, uri)
         }
     }
+
+    private inner class InterceptingClient : BaseClient() {
+        // Anuncios de dominios conocidos: respuesta vacía al instante, sin pasar por la red (y sin pantalla de error).
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            if (request == null) return null
+            val uri = request.url
+            // Esta función corre en un hilo de red: no se puede llamar a WebView.getUrl(). Se recuerda la página
+            // principal desde acá, que es lo primero que se pide al navegar.
+            if (request.isForMainFrame) {
+                pageUrl = uri.toString()
+                return null
+            }
+            val headers = request.requestHeaders
+            return AdBlocker.intercept(
+                url = uri.toString(),
+                host = uri.host,
+                path = uri.path ?: "",
+                source = pageUrl,
+                accept = headers?.get("Accept"),
+                dest = headers?.get("Sec-Fetch-Dest"),
+            )
+        }
+    }
+
+    private val client: WebViewClient = if (DebugFlags.noIntercept) BaseClient() else InterceptingClient()
 
     private val chrome = object : WebChromeClient() {
         private var lastProgress = -1
@@ -363,6 +370,7 @@ private class WebViewSession(
 
     /** Puente para los filtros cosméticos, más el script que corre al empezar cada documento si el WebView lo permite. */
     private fun setupCosmetic() {
+        if (DebugFlags.noCosmetic) return
         try {
             webView.addJavascriptInterface(CosmeticBridge { pageUrl }, CosmeticBridge.NAME)
             if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -469,7 +477,7 @@ private class WebViewSession(
         webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         s.javaScriptCanOpenWindowsAutomatically = false
         // Sin el "; wv" muchos sitios sirven la versión móvil normal en vez de rechazar el WebView.
-        mobileUserAgent = s.userAgentString.replace("; wv", "")
+        mobileUserAgent = if (DebugFlags.defaultUa) s.userAgentString else s.userAgentString.replace("; wv", "")
         s.userAgentString = mobileUserAgent
     }
 
