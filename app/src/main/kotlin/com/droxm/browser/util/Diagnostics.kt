@@ -68,6 +68,11 @@ object Diagnostics {
     fun report(context: Context): String {
         val out = StringBuilder()
         out.append("Droxm Browser — ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
+        try {
+            val wv = android.webkit.WebView.getCurrentWebViewPackage()
+            if (wv != null) out.append("WebView: ${wv.packageName} ${wv.versionName}\n")
+        } catch (_: Throwable) {
+        }
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         if (am != null) {
             val mi = ActivityManager.MemoryInfo()

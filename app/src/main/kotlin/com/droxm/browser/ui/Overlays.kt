@@ -59,6 +59,8 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller?.hide(WindowInsetsCompat.Type.systemBars())
+        // Además de ocultar las barras, se marca la ventana como pantalla completa (lo que pide la documentación del WebView).
+        window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         // La ventana se queda SIEMPRE en vertical: girar de verdad la ventana con un video en el WebView hace que
         // la memoria gráfica crezca sin parar en algunos teléfonos. En su lugar, si se gira el celular, se gira la
         // vista del video "a mano" (misma imagen, pero la ventana no cambia de orientación).
@@ -97,6 +99,7 @@ fun FullscreenOverlay(view: View, modifier: Modifier = Modifier) {
         if (com.droxm.browser.engine.DebugFlags.fsMode != 1 && listener.canDetectOrientation()) listener.enable()
         onDispose {
             listener.disable()
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
             holder.rotation = 0f
             appRoot?.visibility = appRootVisibility
             if (content != null) {
