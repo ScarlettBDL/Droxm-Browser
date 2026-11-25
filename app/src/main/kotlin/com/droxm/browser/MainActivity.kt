@@ -78,8 +78,18 @@ class MainActivity : ComponentActivity() {
     private val sampler = android.os.Handler(android.os.Looper.getMainLooper())
     private val sampleTask = object : Runnable {
         override fun run() {
-            com.droxm.browser.util.Diagnostics.sample(this@MainActivity, manager.debugState())
-            sampler.postDelayed(this, 4000)
+            val graphicsMb = com.droxm.browser.util.Diagnostics.sample(this@MainActivity, manager.debugState())
+            // Freno de emergencia: si la memoria gráfica se dispara en pantalla completa (fuga del WebView en
+            // algunos teléfonos), se sale antes de que Android cierre toda la app y se pierdan las pestañas.
+            if (manager.fullscreen != null && graphicsMb > 700) {
+                manager.exitFullscreen()
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Se salió de pantalla completa: usaba demasiada memoria",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+            sampler.postDelayed(this, if (manager.fullscreen != null) 1500 else 4000)
         }
     }
 

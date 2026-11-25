@@ -45,8 +45,8 @@ object Diagnostics {
     private val samples = ArrayDeque<String>()
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.US)
 
-    /** Anota el uso de memoria (se llama cada pocos segundos). Se guardan las últimas 40 muestras para el informe. */
-    fun sample(context: Context, extra: String) {
+    /** Anota el uso de memoria (se llama cada pocos segundos). Devuelve los MB de memoria gráfica. Se guardan las últimas 40 muestras. */
+    fun sample(context: Context, extra: String): Long {
         try {
             val mi = android.os.Debug.MemoryInfo()
             android.os.Debug.getMemoryInfo(mi)
@@ -59,8 +59,10 @@ object Diagnostics {
                 while (samples.size > 40) samples.removeFirst()
                 File(context.filesDir, "mem_log.txt").writeText(samples.joinToString("\n"))
             }
+            return mb("summary.graphics")
         } catch (_: Throwable) {
         }
+        return 0L
     }
 
     fun report(context: Context): String {

@@ -46,7 +46,7 @@ object DebugFlags {
         noCosmetic = p.getBoolean("noCosmetic", false)
         defaultUa = p.getBoolean("defaultUa", false)
         keepVisible = p.getBoolean("keepVisible", false)
-        fsMode = p.getInt("fsMode", 0).let { if (it == 1) 1 else 0 } // el modo cine ya no existe
+        fsMode = p.getInt("fsMode", 1).let { if (it == 1) 1 else 0 } // el modo cine ya no existe
     }
 
     fun set(name: String, value: Boolean) {
